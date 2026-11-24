@@ -1,0 +1,9 @@
+{
+  "name": "PARTY POP! Multiplayer Arcade",
+  "short_name": "PARTY POP!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#38BDF8",
+  "theme_color": "#38BDF8",
+  "orientation": "any"
+}

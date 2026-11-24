@@ -1,0 +1,23 @@
+{
+  "name": "party-pop-arcade",
+  "version": "1.0.0",
+  "description": "Cross-platform multiplayer cartoon party game hub (2-12 players) for web & mobile browser",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node tests/e2e.test.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "multiplayer",
+    "party-game",
+    "html5-canvas",
+    "websocket",
+    "cross-platform"
+  ],
+  "license": "MIT"
+}

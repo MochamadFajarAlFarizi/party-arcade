@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#38BDF8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>PARTY POP! — Multiplayer Mini-Game Arcade</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- Animated Vibrant Cartoon Sky Backdrop -->
+  <div class="sky-bg" aria-hidden="true">
+    <div class="sun-rays"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+    <div class="floating-shapes">
+      <span>★</span><span>●</span><span>▲</span><span>◆</span><span>★</span><span>●</span>
+    </div>
+  </div>
+
+  <!-- Top Utility Bar -->
+  <header class="top-bar">
+    <div class="brand" id="btnHomeBrand">
+      <span class="brand-badge">🎉</span>
+      <span class="brand-title">PARTY POP!</span>
+    </div>
+    <div class="top-actions">
+      <span class="conn-pill" id="connPill"><i class="dot"></i> Menghubungkan...</span>
+      <button class="btn-icon" id="btnEmotesTop" title="Emot Custom (Upload Gambar)">😄</button>
+      <button class="btn-icon" id="btnLeaderboardTop" title="Leaderboard Global">🏆</button>
+      <button class="btn-icon" id="btnMute" title="Suara On/Off">🔊</button>
+      <button class="btn-icon" id="btnFullscreenTop" title="Layar Penuh (Fullscreen)">⛶</button>
+    </div>
+  </header>
+
+  <!-- Toast & Floating Emoji Layer -->
+  <div id="toastContainer" class="toast-container"></div>
+  <div id="reactionLayer" class="reaction-layer"></div>
+
+  <!-- SCREEN 1: HOME / AVATAR / CREATE OR JOIN ROOM -->
+  <main id="screenHome" class="screen active">
+    <section class="home-hero">
+      <div class="hero-pill">✨ 2–12 PEMAIN • WEB & HP • MAIN BARENG DISCORDAN</div>
+      <h1 class="hero-title">Satu Web, <span>20 Game Rusuh!</span></h1>
+      <p class="hero-sub">Bomb Pass • Sumo • Turf Paint • Sambung Kata • Tebak Gambar • Soccer • Zombie • Trivia • +12 Game Lainnya!</p>
+    </section>
+
+    <section class="home-grid">
+      <!-- Avatar Card -->
+      <div class="cartoon-card avatar-card">
+        <div class="card-head">
+          <h2>🎭 Karakter Kamu</h2>
+          <button class="btn-mini" id="btnRandomAvatar">🎲 Acak</button>
+        </div>
+        <div class="avatar-preview-wrap">
+          <canvas id="avatarPreviewCanvas" width="220" height="190"></canvas>
+        </div>
+        <label class="field-label" for="inputName">Nama Pemain</label>
+        <input id="inputName" class="cartoon-input" type="text" maxlength="16" placeholder="Ketik nickname kamu..." autocomplete="off" />
+
+        <div class="picker-group">
+          <span class="field-label">Warna</span>
+          <div id="colorPalette" class="color-palette"></div>
+        </div>
+        <div class="picker-group">
+          <span class="field-label">Aksesori / Topi</span>
+          <div id="hatPalette" class="hat-palette"></div>
+        </div>
+      </div>
+
+      <!-- Play Card -->
+      <div class="cartoon-card play-card">
+        <h2>🚀 Mulai Main Bareng</h2>
+        <p class="muted">Buat room, bagikan link ke Discord, dan langsung gas di PC atau HP tanpa install!</p>
+
+        <button class="btn-candy btn-pink btn-lg" id="btnCreateRoom">
+          🎉 BUAT ROOM BARU
+        </button>
+
+        <div class="divider"><span>ATAU GABUNG ROOM TEMAN</span></div>
+
+        <div class="join-row">
+          <input id="inputRoomCode" class="cartoon-input code-input" type="text" maxlength="4" placeholder="KODE" autocomplete="off" />
+          <button class="btn-candy btn-blue" id="btnJoinRoom">MASUK</button>
+        </div>
+
+        <div class="game-showcase">
+          <h3>🎮 20 Mini-Game Siap Main</h3>
+          <div class="mini-badges" id="homeGameBadges"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- SCREEN 2: ROOM LOBBY -->
+  <main id="screenLobby" class="screen">
+    <div class="lobby-header cartoon-card">
+      <div class="room-code-box">
+        <span class="label-sm">KODE ROOM</span>
+        <div class="code-big" id="lobbyRoomCode">----</div>
+      </div>
+      <div class="lobby-share-actions">
+        <button class="btn-candy btn-yellow" id="btnCopyInvite">📋 Salin Link Discord</button>
+        <button class="btn-candy btn-white" id="btnLeaveRoom">🚪 Keluar</button>
+      </div>
+    </div>
+
+    <div class="lobby-grid">
+      <!-- Players Panel -->
+      <div class="cartoon-card players-panel">
+        <div class="card-head">
+          <h2>👥 Pemain (<span id="lobbyPlayerCount">0</span>/12)</h2>
+          <div class="host-only-inline" id="botControls">
+            <button class="btn-mini btn-green-mini" id="btnAddBot">+ Bot AI</button>
+            <button class="btn-mini" id="btnRemoveBot">- Bot</button>
+          </div>
+        </div>
+        <div id="lobbyPlayersList" class="players-list"></div>
+
+        <!-- Reaction Bar (Standard + Custom Image Emotes) -->
+        <div class="reaction-bar">
+          <button class="react-btn" data-emoji="😂">😂</button>
+          <button class="react-btn" data-emoji="🔥">🔥</button>
+          <button class="react-btn" data-emoji="😱">😱</button>
+          <button class="react-btn" data-emoji="💀">💀</button>
+          <button class="react-btn" data-emoji="👑">👑</button>
+          <button class="react-btn" data-emoji="👏">👏</button>
+          <button class="react-btn react-add-btn" id="btnAddCustomEmoteLobby" title="Upload / Atur Emot Custom">➕</button>
+        </div>
+        <div id="lobbyCustomEmotes" class="custom-emote-strip hidden"></div>
+
+        <!-- Mini Chat -->
+        <div class="chat-box">
+          <div id="lobbyChatLog" class="chat-log"></div>
+          <form id="lobbyChatForm" class="chat-form">
+            <input id="lobbyChatInput" class="cartoon-input chat-input" type="text" maxlength="120" placeholder="Kirim pesan ke room..." autocomplete="off" />
+            <button type="submit" class="btn-mini btn-blue-mini">Kirim</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Mode & Game Selector Panel -->
+      <div class="cartoon-card games-panel">
+        <div class="cup-banner">
+          <div>
+            <h3>🏆 MODE PARTY CUP (TURNAMEN)</h3>
+            <p>Main beberapa mini-game beruntun, kumpulkan poin & rebut piala podium!</p>
+          </div>
+          <div class="cup-buttons" id="cupControls">
+            <button class="btn-candy btn-yellow" data-cup="3">3 Ronde</button>
+            <button class="btn-candy btn-orange" data-cup="5">5 Ronde</button>
+            <button class="btn-candy btn-pink" data-cup="10">10 Ronde!</button>
+          </div>
+        </div>
+
+        <div class="card-head" style="margin-top: 10px;">
+          <h2>🎮 Pilih Game (20 Tersedia)</h2>
+          <button class="btn-mini btn-purple-mini" id="btnRandomGame">🎲 Spin Acak!</button>
+        </div>
+        <div id="gameCategoryFilters" class="cat-filters">
+          <button type="button" class="lb-tab active" data-cat="ALL">🌟 Semua (20)</button>
+          <button type="button" class="lb-tab" data-cat="Action">🔥 Action</button>
+          <button type="button" class="lb-tab" data-cat="Survival">🏃 Survival</button>
+          <button type="button" class="lb-tab" data-cat="Sport">⚽ Sport</button>
+          <button type="button" class="lb-tab" data-cat="Brain">🧠 Otak & Kata</button>
+          <button type="button" class="lb-tab" data-cat="Social">🎉 Sosial</button>
+        </div>
+        <p class="guest-wait-note" id="guestWaitNote">⏳ Menunggu Host memilih permainan...</p>
+        <div id="lobbyGamesGrid" class="games-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SCREEN 3: ACTIVE GAME ARENA / DRAW / WORD -->
+  <main id="screenGame" class="screen game-screen">
+    <!-- Top HUD -->
+    <div class="game-hud">
+      <div class="hud-left">
+        <span class="hud-chip hud-game-name" id="hudGameName">🎮 Game</span>
+        <span class="hud-chip hud-cup" id="hudCupBadge" hidden>🏆 Ronde 1/3</span>
+      </div>
+      <div class="hud-center" id="hudCenterInfo">Siap-siap...</div>
+      <div class="hud-right">
+        <button class="btn-mini btn-yellow-mini" id="btnGameEmoteTray" title="Kirim Emot / Stiker Custom">😄 Emot</button>
+        <button class="btn-mini" id="btnMuteGame" title="Suara On/Off">🔊</button>
+        <button class="btn-mini" id="btnFullscreenGame" title="Layar Penuh">⛶</button>
+        <button class="btn-mini" id="btnAbortGame" title="Kembali ke Lobby (Host)" hidden>⏹ Lobby</button>
+      </div>
+    </div>
+
+    <!-- Floating In-Game Emote Picker Tray (PC & HP) -->
+    <div id="gameEmoteTray" class="game-emote-tray hidden">
+      <div class="emote-tray-std">
+        <button class="react-mini" data-emoji="😂">😂</button>
+        <button class="react-mini" data-emoji="🔥">🔥</button>
+        <button class="react-mini" data-emoji="😱">😱</button>
+        <button class="react-mini" data-emoji="💀">💀</button>
+        <button class="react-mini" data-emoji="👑">👑</button>
+        <button class="react-mini" data-emoji="👏">👏</button>
+      </div>
+      <div id="gameCustomEmotes" class="emote-tray-custom"></div>
+      <button class="btn-mini btn-purple-mini" id="btnAddCustomEmoteGame" type="button">➕ Upload Emot</button>
+    </div>
+
+    <!-- Banner Overlay -->
+    <div id="gameBanner" class="game-banner hidden"></div>
+    <div id="countdownOverlay" class="countdown-overlay hidden">3</div>
+
+    <!-- Mobile Legends Style Hold-and-Swipe Radial Emote Wheel -->
+    <div id="radialWheel" class="radial-wheel hidden" aria-hidden="true">
+      <div class="radial-ring"></div>
+      <div id="radialArrow" class="radial-arrow"></div>
+      <div id="radialCenter" class="radial-center">Geser</div>
+      <div id="radialSlots" class="radial-slots"></div>
+    </div>
+
+    <!-- ARENA CANVAS VIEW (Bomb Pass, Sumo, Turf Paint, Chaos Survival) -->
+    <div id="viewArena" class="game-view hidden">
+      <div class="arena-wrap">
+        <canvas id="arenaCanvas" width="1000" height="620"></canvas>
+        <!-- Mobile / Touch Floating Joystick + Action & Radial Emote Wheel Button -->
+        <div id="touchLayer" class="touch-layer">
+          <div id="joystickZone" class="joystick-zone">
+            <div id="joystickBase" class="joystick-base hidden">
+              <div id="joystickKnob" class="joystick-knob"></div>
+            </div>
+            <span class="touch-hint">Geser Kiri: Gerak</span>
+          </div>
+          <button id="btnWheelArena" class="btn-touch-emote" type="button" title="Tahan & Geser untuk Emot!">
+            <span>😄</span>
+            <small>HOLD</small>
+          </button>
+          <button id="btnTouchAction" class="btn-touch-action" type="button">
+            <span>⚡</span>
+            <small>DASH</small>
+          </button>
+        </div>
+      </div>
+      <div class="control-tip">💻 PC: <b>WASD/Panah</b> gerak • <b>Spasi</b> Dash • <b>Tahan E / 1-6</b> Emot &nbsp;|&nbsp; 📱 HP: <b>Joystick Kiri</b> • <b>DASH</b> • <b>Tahan & Geser 😄</b> Emot</div>
+    </div>
+
+    <!-- QUICK DRAW VIEW (Tebak Gambar Cepat) -->
+    <div id="viewDraw" class="game-view draw-view hidden">
+      <div class="draw-header-bar">
+        <span id="drawArtistBadge" class="hud-chip">✏️ Pelukis: -</span>
+        <div id="drawWordDisplay" class="draw-word-display">_ _ _ _</div>
+        <span id="drawTimerBadge" class="hud-chip hud-timer">⏱ 55s</span>
+      </div>
+      <div class="draw-main-grid">
+        <div class="draw-canvas-card cartoon-card">
+          <div id="drawWordModal" class="word-choice-overlay hidden">
+            <h3>🎨 Pilih Kata yang Mau Kamu Gambar!</h3>
+            <div id="drawWordChoices" class="word-choices"></div>
+          </div>
+          <canvas id="drawCanvas" width="800" height="520"></canvas>
+          <div id="drawToolbar" class="draw-toolbar hidden">
+            <div id="drawColors" class="draw-colors"></div>
+            <div class="draw-tools-right">
+              <button class="tool-btn active" data-size="6" title="Kuas Kecil">●</button>
+              <button class="tool-btn" data-size="14" title="Kuas Sedang">⬤</button>
+              <button class="tool-btn" data-size="26" title="Kuas Besar">⚫</button>
+              <button class="tool-btn" id="btnDrawEraser" title="Penghapus">🧽</button>
+              <button class="tool-btn" id="btnDrawUndo" title="Undo">↩️</button>
+              <button class="tool-btn" id="btnDrawClear" title="Hapus Semua">🗑️</button>
+            </div>
+          </div>
+        </div>
+        <div class="draw-side-card cartoon-card">
+          <div id="drawPlayersBar" class="draw-players-bar"></div>
+          <div id="drawChatLog" class="chat-log draw-chat-log"></div>
+          <form id="drawGuessForm" class="chat-form">
+            <input id="drawGuessInput" class="cartoon-input chat-input" type="text" maxlength="50" placeholder="Tebak gambarnya di sini..." autocomplete="off" />
+            <button type="submit" class="btn-candy btn-green btn-sm">Tebak!</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORD BOMB VIEW -->
+    <div id="viewWord" class="game-view word-view hidden">
+      <div class="word-stage-wrap">
+        <canvas id="wordCanvas" width="960" height="520"></canvas>
+      </div>
+      <form id="wordBombForm" class="word-input-bar cartoon-card">
+        <span class="syllable-pill" id="wordSyllablePill">DA...</span>
+        <input id="wordBombInput" class="cartoon-input word-input" type="text" maxlength="24" placeholder="Ketik kata BERAWALAN suku kata..." autocomplete="off" autocapitalize="none" spellcheck="false" />
+        <button type="submit" class="btn-candy btn-pink">KIRIM!</button>
+      </form>
+    </div>
+
+    <!-- PARTY QUIZ / REFLEX / MATH VIEW -->
+    <div id="viewParty" class="game-view party-view hidden">
+      <div id="partyPlayersBar" class="party-players-bar"></div>
+      <div id="partyStage" class="party-stage"></div>
+    </div>
+  </main>
+
+  <!-- SCREEN 4: PODIUM & RESULTS -->
+  <main id="screenPodium" class="screen">
+    <div class="podium-card cartoon-card">
+      <div class="podium-top">
+        <span class="hero-pill" id="podiumBadge">🏆 HASIL PERTANDINGAN</span>
+        <h1 id="podiumTitle">JUARA RONDE INI!</h1>
+      </div>
+
+      <div id="podiumVisual" class="podium-visual"></div>
+      <div id="podiumTable" class="podium-table"></div>
+
+      <div class="podium-actions">
+        <button class="btn-candy btn-yellow btn-lg" id="btnNextRound" hidden>➡️ RONDE BERIKUTNYA</button>
+        <button class="btn-candy btn-green btn-lg" id="btnPlayAgain">🔄 MAIN LAGI</button>
+        <button class="btn-candy btn-blue" id="btnBackLobby">🏠 KEMBALI KE LOBBY</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- CUSTOM EMOTE STUDIO MODAL -->
+  <div id="modalEmotes" class="modal-backdrop hidden">
+    <div class="modal-card cartoon-card emote-modal-card">
+      <div class="card-head">
+        <h2>🖼️ Studio Emot Custom</h2>
+        <button class="btn-mini" id="btnCloseEmotes">✕ Tutup</button>
+      </div>
+      <p class="muted" style="margin:0 0 10px">Upload foto/meme/stiker dari HP atau PC! Otomatis dipotong kotak & dikompres ringan (maks 8 emot).</p>
+
+      <div class="emote-upload-box">
+        <div class="emote-preview-slot" id="emotePreviewSlot">
+          <span>🖼️</span>
+        </div>
+        <div class="emote-upload-fields">
+          <input id="inputEmoteFile" type="file" accept="image/*" hidden />
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn-candy btn-blue btn-sm" id="btnPickEmoteFile">📁 Pilih Gambar</button>
+            <input id="inputEmoteLabel" class="cartoon-input" style="flex:1;min-width:120px;padding:7px 10px;font-size:14px" type="text" maxlength="14" placeholder="Nama emot (opsional)" autocomplete="off" />
+          </div>
+          <button type="button" class="btn-candy btn-green btn-sm" id="btnSaveCustomEmote" disabled>✅ Simpan Emot Ini</button>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--font-display);margin:12px 0 8px;font-size:16px">Koleksi Emot Kamu (<span id="customEmoteCount">0</span>/8)</h3>
+      <div id="savedEmotesGrid" class="saved-emotes-grid"></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD MODAL -->
+  <div id="modalLeaderboard" class="modal-backdrop hidden">
+    <div class="modal-card cartoon-card">
+      <div class="card-head">
+        <h2>🏆 Leaderboard Global</h2>
+        <button class="btn-mini" id="btnCloseLeaderboard">✕ Tutup</button>
+      </div>
+      <div class="lb-tabs" id="lbTabs">
+        <button class="lb-tab active" data-tab="global">🌟 Global Top</button>
+        <button class="lb-tab" data-tab="bomb-pass">💣 Bomb</button>
+        <button class="lb-tab" data-tab="sumo-knockout">🏝️ Sumo</button>
+        <button class="lb-tab" data-tab="turf-paint">🎨 Turf</button>
+        <button class="lb-tab" data-tab="quick-draw">✏️ Gambar</button>
+        <button class="lb-tab" data-tab="word-bomb">🔤 Kata</button>
+        <button class="lb-tab" data-tab="chaos-survival">⚡ Chaos</button>
+      </div>
+      <div id="lbContent" class="lb-content"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
