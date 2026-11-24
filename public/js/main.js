@@ -9,6 +9,7 @@ import { GameTransport } from './transport.js';
 
 const STORAGE_KEY = 'party_pop_profile_v1';
 const EMOTES_KEY = 'party_pop_custom_emotes_v1';
+const ACCOUNT_TOKEN_KEY = 'party_pop_account_token_v1';
 const MAX_CUSTOM_EMOTES = 8;
 
 const app = {
@@ -23,11 +24,25 @@ const app = {
   lastCupInfo: null,
   leaderboardData: null,
   lbTab: 'global',
+  lbPeriod: 'all',
   selectedCategory: 'ALL',
   profile: loadProfile(),
   customEmotes: loadCustomEmotes(),
   pendingEmoteDataUrl: null,
+  accountToken: loadAccountToken(),
+  accountName: null,
 };
+
+function loadAccountToken() {
+  try { return localStorage.getItem(ACCOUNT_TOKEN_KEY) || null; } catch { return null; }
+}
+function saveAccountToken(token) {
+  app.accountToken = token || null;
+  try {
+    if (token) localStorage.setItem(ACCOUNT_TOKEN_KEY, token);
+    else localStorage.removeItem(ACCOUNT_TOKEN_KEY);
+  } catch { /* ignore */ }
+}
 
 const emoteImageCache = new Map();
 function getCachedEmoteImage(dataUrl) {
@@ -61,6 +76,7 @@ function saveCustomEmotes() {
   } catch {
     toast('⚠️ Penyimpanan penuh — coba hapus beberapa emot lama.');
   }
+  scheduleCloudSync();
 }
 
 function loadProfile() {
@@ -80,6 +96,132 @@ function saveProfile() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(app.profile));
   } catch { /* ignore */ }
+  scheduleCloudSync();
+}
+
+let cloudSyncTimer = null;
+function scheduleCloudSync() {
+  if (!app.accountToken) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => syncAccountNow(false), 600);
+}
+
+async function syncAccountNow(notify = false) {
+  if (!app.accountToken) return;
+  try {
+    const r = await fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'sync',
+        token: app.accountToken,
+        color: app.profile.color,
+        hat: app.profile.hat,
+        customEmotes: app.customEmotes,
+      }),
+    });
+    if (r.ok && notify) {
+      sfx.play('correct');
+      toast('☁️ Avatar & Emot Custom tersinkron ke Cloud!');
+    }
+  } catch { /* ignore */ }
+}
+
+function updateAccountUI() {
+  const pill = document.getElementById('btnAccountTop');
+  const inlineText = document.getElementById('accountInlineStatus');
+  const inlineBtn = document.getElementById('btnAccountInline');
+  const nameInput = document.getElementById('inputName');
+  const loggedOutView = document.getElementById('accountLoggedOutView');
+  const loggedInView = document.getElementById('accountLoggedInView');
+  const signedName = document.getElementById('accountSignedName');
+
+  const signed = !!(app.accountToken && app.accountName);
+  if (pill) {
+    pill.textContent = signed ? `🛡️ ${app.accountName}` : '🔐 Akun';
+    pill.classList.toggle('signed', signed);
+  }
+  if (inlineText) {
+    inlineText.textContent = signed ? `🛡️ Terkunci PIN (${app.customEmotes.length} emot sinkron)` : 'Mode Tamu (belum dikunci PIN)';
+  }
+  if (inlineBtn) {
+    inlineBtn.textContent = signed ? '⚙️ Akun' : '🔐 Kunci / Login';
+  }
+  if (nameInput) {
+    nameInput.readOnly = signed;
+    if (signed) nameInput.value = app.accountName;
+  }
+  if (loggedOutView) loggedOutView.classList.toggle('hidden', signed);
+  if (loggedInView) loggedInView.classList.toggle('hidden', !signed);
+  if (signedName && signed) signedName.textContent = app.accountName;
+}
+
+async function restoreAccountSession() {
+  if (!app.accountToken) {
+    updateAccountUI();
+    return;
+  }
+  try {
+    const r = await fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'me', token: app.accountToken }),
+    });
+    const data = await r.json();
+    if (r.ok && data.ok && data.account) {
+      applyCloudAccount(data.account);
+    } else {
+      saveAccountToken(null);
+      app.accountName = null;
+    }
+  } catch { /* ignore */ }
+  updateAccountUI();
+}
+
+function applyCloudAccount(acc) {
+  app.accountName = acc.name;
+  app.profile.name = acc.name;
+  if (AVATAR_COLORS.includes(acc.color)) app.profile.color = acc.color;
+  if (AVATAR_HATS.some((h) => h.id === acc.hat)) app.profile.hat = acc.hat;
+  if (Array.isArray(acc.customEmotes)) {
+    app.customEmotes = acc.customEmotes.slice(0, MAX_CUSTOM_EMOTES);
+    try { localStorage.setItem(EMOTES_KEY, JSON.stringify(app.customEmotes)); } catch { /* ignore */ }
+  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app.profile)); } catch { /* ignore */ }
+  initAvatarEditor();
+  renderCustomEmoteUI();
+  updateAccountUI();
+}
+
+function openAccountModal(prefillName = null) {
+  updateAccountUI();
+  const inp = document.getElementById('inputAuthName');
+  const pin = document.getElementById('inputAuthPin');
+  if (inp) inp.value = prefillName || app.profile.name || '';
+  if (pin) pin.value = '';
+  document.getElementById('modalAccount').classList.remove('hidden');
+}
+
+async function checkNicknameAllowedBeforePlay() {
+  const name = app.profile.name.trim();
+  if (!name) return false;
+  if (app.accountToken && app.accountName && app.accountName.toLowerCase() === name.toLowerCase()) {
+    return true;
+  }
+  try {
+    const r = await fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check', name }),
+    });
+    const data = await r.json();
+    if (data.locked) {
+      toast(`🔐 Nickname "${name}" dikunci PIN! Masukkan PIN atau ganti nama lain.`);
+      openAccountModal(name);
+      return false;
+    }
+  } catch { /* allow offline/fallback */ }
+  return true;
 }
 
 // ===== UI HELPERS =====
@@ -611,13 +753,10 @@ function handleServerMessage(msg) {
 }
 
 // ===== HOME AVATAR EDITOR =====
+let avatarEditorInitialized = false;
 function initAvatarEditor() {
   const nameInput = document.getElementById('inputName');
   nameInput.value = app.profile.name;
-  nameInput.addEventListener('input', () => {
-    app.profile.name = nameInput.value.trim().slice(0, 16) || 'Pemain';
-    saveProfile();
-  });
 
   const colBox = document.getElementById('colorPalette');
   colBox.innerHTML = '';
@@ -653,6 +792,14 @@ function initAvatarEditor() {
     hatBox.appendChild(chip);
   }
 
+  if (avatarEditorInitialized) return;
+  avatarEditorInitialized = true;
+
+  nameInput.addEventListener('input', () => {
+    app.profile.name = nameInput.value.trim().slice(0, 16) || 'Pemain';
+    saveProfile();
+  });
+
   document.getElementById('btnRandomAvatar').addEventListener('click', () => {
     app.profile.color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
     app.profile.hat = AVATAR_HATS[Math.floor(Math.random() * AVATAR_HATS.length)].id;
@@ -667,7 +814,6 @@ function initAvatarEditor() {
   function animatePreview(now) {
     const t = now / 1000;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Floating podium shadow
     ctx.fillStyle = '#FFFFFF';
     ctx.strokeStyle = '#1E1B4B';
     ctx.lineWidth = 3;
@@ -893,14 +1039,19 @@ function renderLeaderboardTabs() {
 }
 
 // ===== LEADERBOARD MODAL =====
-function openLeaderboard() {
-  renderLeaderboardTabs();
-  document.getElementById('modalLeaderboard').classList.remove('hidden');
-  sendWS({ type: 'get_leaderboard' });
-  fetch('/api/leaderboard')
+function fetchLeaderboardForPeriod() {
+  const box = document.getElementById('lbContent');
+  if (box) box.innerHTML = '<p class="muted" style="text-align:center">Memuat leaderboard...</p>';
+  fetch(`/api/leaderboard?period=${encodeURIComponent(app.lbPeriod)}`, { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => { app.leaderboardData = data; renderLeaderboard(); })
     .catch(() => renderLeaderboard());
+}
+
+function openLeaderboard() {
+  renderLeaderboardTabs();
+  document.getElementById('modalLeaderboard').classList.remove('hidden');
+  fetchLeaderboardForPeriod();
 }
 
 function renderLeaderboard() {
@@ -1001,6 +1152,16 @@ function bindEvents() {
     if (e.target.id === 'modalLeaderboard') e.currentTarget.classList.add('hidden');
   });
 
+  document.getElementById('lbPeriodTabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-period]');
+    if (!btn) return;
+    app.lbPeriod = btn.dataset.period;
+    document.querySelectorAll('#lbPeriodTabs .lb-period-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    sfx.play('pop');
+    fetchLeaderboardForPeriod();
+  });
+
   document.getElementById('lbTabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.lb-tab');
     if (!tab) return;
@@ -1008,6 +1169,64 @@ function bindEvents() {
     document.querySelectorAll('#lbTabs .lb-tab').forEach((b) => b.classList.remove('active'));
     tab.classList.add('active');
     renderLeaderboard();
+  });
+
+  // Account PIN Modal handlers
+  document.getElementById('btnAccountTop')?.addEventListener('click', () => openAccountModal());
+  document.getElementById('btnAccountInline')?.addEventListener('click', () => openAccountModal());
+  document.getElementById('btnCloseAccount')?.addEventListener('click', () => {
+    document.getElementById('modalAccount').classList.add('hidden');
+  });
+  document.getElementById('modalAccount')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modalAccount') e.currentTarget.classList.add('hidden');
+  });
+
+  document.getElementById('accountAuthForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('inputAuthName').value.trim();
+    const pin = document.getElementById('inputAuthPin').value.trim();
+    const btn = document.getElementById('btnSubmitAuth');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'auth',
+          name,
+          pin,
+          color: app.profile.color,
+          hat: app.profile.hat,
+          customEmotes: app.customEmotes,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        sfx.play('wrong');
+        toast(`❌ ${data.error || 'Gagal login akun'}`);
+      } else {
+        saveAccountToken(data.token);
+        applyCloudAccount(data.account);
+        document.getElementById('modalAccount').classList.add('hidden');
+        sfx.play('win');
+        toast(data.isNew
+          ? `🛡️ Nickname "${data.account.name}" dikunci PIN & tersinkron!`
+          : `✅ Selamat datang kembali, ${data.account.name}! (${data.account.customEmotes.length} emot tersinkron)`);
+      }
+    } catch {
+      toast('⚠️ Gagal terhubung ke server akun.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btnForceSync')?.addEventListener('click', () => syncAccountNow(true));
+  document.getElementById('btnLogoutAccount')?.addEventListener('click', () => {
+    saveAccountToken(null);
+    app.accountName = null;
+    updateAccountUI();
+    document.getElementById('modalAccount').classList.add('hidden');
+    toast('🚪 Keluar dari akun PIN (sekarang Mode Tamu).');
   });
 
   document.getElementById('gameCategoryFilters')?.addEventListener('click', (e) => {
@@ -1020,17 +1239,19 @@ function bindEvents() {
     sfx.play('pop');
   });
 
-  document.getElementById('btnCreateRoom').addEventListener('click', () => {
+  document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+    if (!(await checkNicknameAllowedBeforePlay())) return;
     sfx.play('pop');
     sendWS({ type: 'create_room', profile: app.profile });
   });
 
-  const doJoin = () => {
+  const doJoin = async () => {
     const code = document.getElementById('inputRoomCode').value.trim().toUpperCase();
     if (code.length < 3) {
       toast('Masukkan kode room 4 huruf dulu!');
       return;
     }
+    if (!(await checkNicknameAllowedBeforePlay())) return;
     sfx.play('pop');
     sendWS({ type: 'join_room', code, profile: app.profile });
   };
@@ -1208,4 +1429,5 @@ initAvatarEditor();
 renderCustomEmoteUI();
 updateFullscreenIcons();
 bindEvents();
+restoreAccountSession();
 connectWS();

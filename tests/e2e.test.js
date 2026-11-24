@@ -200,6 +200,38 @@ async function run() {
     assert.equal(lb.global[0].totalScore, 320);
     assert.equal(lb.global[0].wins, 1);
 
+    // 6. Verify Today / Week period leaderboards, Favicon, & PIN Account Sync
+    const lbToday = await (await fetch(`http://127.0.0.1:${port}/api/leaderboard?period=today`)).json();
+    assert.equal(lbToday.global[0].name, 'Raka');
+    const lbWeek = await (await fetch(`http://127.0.0.1:${port}/api/leaderboard?period=week`)).json();
+    assert.equal(lbWeek.global[0].name, 'Raka');
+
+    const favRes = await fetch(`http://127.0.0.1:${port}/favicon.svg`);
+    assert.equal(favRes.status, 200);
+
+    const auth1 = await (await fetch(`http://127.0.0.1:${port}/api/account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'auth', name: 'Acilll', pin: '1234', color: '#38BDF8', hat: 'crown', customEmotes: [{ id: 'e1', dataUrl: tinyPng, label: 'LOL' }] }),
+    })).json();
+    assert.equal(auth1.ok, true);
+    assert.equal(auth1.isNew, true);
+
+    const badPin = await (await fetch(`http://127.0.0.1:${port}/api/account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'auth', name: 'Acilll', pin: '9999' }),
+    })).json();
+    assert.ok(badPin.error);
+
+    const meRes = await (await fetch(`http://127.0.0.1:${port}/api/account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'me', token: auth1.token }),
+    })).json();
+    assert.equal(meRes.account.name, 'Acilll');
+    assert.equal(meRes.account.customEmotes.length, 1);
+
     p1.close();
     p2.close();
     p3.close();

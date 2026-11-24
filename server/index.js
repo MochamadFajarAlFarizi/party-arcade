@@ -41,8 +41,73 @@ export function createPartyServer({ port = Number(process.env.PORT) || 3456, lea
     }
 
     if (pathname === '/api/leaderboard') {
+      const period = ['today', 'week', 'all'].includes(url.searchParams.get('period'))
+        ? url.searchParams.get('period')
+        : 'all';
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(JSON.stringify(leaderboard.getLeaderboard(50)));
+      res.end(JSON.stringify(leaderboard.getLeaderboard(50, period)));
+      return;
+    }
+
+    if (pathname === '/api/account' && req.method === 'POST') {
+      // Local fallback account handler (in-memory for local LAN dev; Supabase handles cloud persistence on Vercel!)
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        try {
+          const parsed = JSON.parse(body || '{}');
+          const { hashPin, verifyPin, signAccountToken, verifyAccountToken, sanitizeEmotes } = await import('../api/account.js');
+          if (!rooms._localAccounts) rooms._localAccounts = new Map();
+          const store = rooms._localAccounts;
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+          if (parsed.action === 'auth') {
+            const name = String(parsed.name || '').trim().slice(0, 16);
+            const pin = String(parsed.pin || '').trim();
+            if (name.length < 2 || !/^\d{4,6}$/.test(pin)) {
+              res.end(JSON.stringify({ error: 'Nama min 2 huruf & PIN 4-6 angka!' }));
+              return;
+            }
+            const k = name.toLowerCase();
+            const ex = store.get(k);
+            if (ex) {
+              if (!verifyPin(pin, ex.pinHash)) { res.end(JSON.stringify({ error: 'PIN salah!' })); return; }
+              res.end(JSON.stringify({ ok: true, isNew: false, token: signAccountToken(k), account: { name: ex.name, color: ex.color, hat: ex.hat, customEmotes: ex.customEmotes } }));
+              return;
+            }
+            const rec = { name, pinHash: hashPin(pin), color: parsed.color || '#FF5E7E', hat: parsed.hat || 'headset', customEmotes: sanitizeEmotes(parsed.customEmotes || []) };
+            store.set(k, rec);
+            res.end(JSON.stringify({ ok: true, isNew: true, token: signAccountToken(k), account: { name: rec.name, color: rec.color, hat: rec.hat, customEmotes: rec.customEmotes } }));
+            return;
+          }
+          if (parsed.action === 'me') {
+            const k = verifyAccountToken(parsed.token);
+            const ex = k ? store.get(k) : null;
+            if (!ex) { res.end(JSON.stringify({ error: 'Not found' })); return; }
+            res.end(JSON.stringify({ ok: true, account: { name: ex.name, color: ex.color, hat: ex.hat, customEmotes: ex.customEmotes } }));
+            return;
+          }
+          if (parsed.action === 'sync') {
+            const k = verifyAccountToken(parsed.token);
+            const ex = k ? store.get(k) : null;
+            if (ex) {
+              if (parsed.color) ex.color = parsed.color;
+              if (parsed.hat) ex.hat = parsed.hat;
+              if (Array.isArray(parsed.customEmotes)) ex.customEmotes = sanitizeEmotes(parsed.customEmotes);
+            }
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (parsed.action === 'check') {
+            const k = String(parsed.name || '').trim().toLowerCase();
+            res.end(JSON.stringify({ locked: store.has(k) }));
+            return;
+          }
+          res.end(JSON.stringify({ error: 'Unknown action' }));
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid request' }));
+        }
+      });
       return;
     }
 

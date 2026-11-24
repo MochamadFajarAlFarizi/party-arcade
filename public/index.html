@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#38BDF8" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>PARTY POP! — Multiplayer Mini-Game Arcade</title>
+  <title>PARTY POP! — 20 Mini-Game Mabar</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,6 +34,7 @@
     </div>
     <div class="top-actions">
       <span class="conn-pill" id="connPill"><i class="dot"></i> Menghubungkan...</span>
+      <button class="account-pill" id="btnAccountTop" title="Login / Kunci Nickname dengan PIN">🔐 Akun</button>
       <button class="btn-icon" id="btnEmotesTop" title="Emot Custom (Upload Gambar)">😄</button>
       <button class="btn-icon" id="btnLeaderboardTop" title="Leaderboard Global">🏆</button>
       <button class="btn-icon" id="btnMute" title="Suara On/Off">🔊</button>
@@ -63,6 +66,10 @@
         </div>
         <label class="field-label" for="inputName">Nama Pemain</label>
         <input id="inputName" class="cartoon-input" type="text" maxlength="16" placeholder="Ketik nickname kamu..." autocomplete="off" />
+        <div class="account-inline-bar">
+          <span id="accountInlineStatus" class="account-inline-text">Mode Tamu (belum dikunci PIN)</span>
+          <button type="button" class="btn-mini btn-yellow-mini" id="btnAccountInline">🔐 Kunci / Login</button>
+        </div>
 
         <div class="picker-group">
           <span class="field-label">Warna</span>
@@ -348,12 +355,55 @@
     </div>
   </div>
 
+  <!-- ACCOUNT PIN & CLOUD SYNC MODAL -->
+  <div id="modalAccount" class="modal-backdrop hidden">
+    <div class="modal-card cartoon-card account-modal-card">
+      <div class="card-head">
+        <h2>🔐 Akun PIN & Sinkron Cloud</h2>
+        <button class="btn-mini" id="btnCloseAccount">✕ Tutup</button>
+      </div>
+
+      <div id="accountLoggedOutView">
+        <p class="muted" style="margin:0 0 12px">
+          Kunci nickname kamu dengan <b>PIN 4–6 angka</b> biar tidak bisa dibajak teman Discord, plus <b>Emot Custom & Avatar otomatis sinkron di HP & PC!</b>
+        </p>
+        <form id="accountAuthForm" class="account-form">
+          <label class="field-label" for="inputAuthName">Nickname</label>
+          <input id="inputAuthName" class="cartoon-input" type="text" maxlength="16" placeholder="Contoh: Acilll" autocomplete="username" required />
+          <label class="field-label" for="inputAuthPin">PIN Rahasia (4–6 Angka)</label>
+          <input id="inputAuthPin" class="cartoon-input" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="••••" autocomplete="current-password" required />
+          <p class="muted" style="font-size:12px;margin:4px 0 8px">💡 Jika nickname belum pernah diklaim, otomatis langsung dibuatkan akun baru dengan PIN ini.</p>
+          <button type="submit" class="btn-candy btn-green btn-lg" id="btnSubmitAuth">🔐 MASUK / KLAIM NICKNAME</button>
+        </form>
+      </div>
+
+      <div id="accountLoggedInView" class="hidden">
+        <div class="account-active-box">
+          <div style="font-size:32px">🛡️</div>
+          <div>
+            <strong id="accountSignedName" style="font-family:var(--font-display);font-size:20px">-</strong>
+            <div style="font-size:12.5px;font-weight:800;color:#15803D">✅ Terkunci PIN • Emot Custom & Avatar Sinkron HP ↔ PC</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button type="button" class="btn-candy btn-blue" style="flex:1" id="btnForceSync">☁️ Sinkron Sekarang</button>
+          <button type="button" class="btn-candy btn-white" id="btnLogoutAccount">🚪 Keluar Akun</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- LEADERBOARD MODAL -->
   <div id="modalLeaderboard" class="modal-backdrop hidden">
     <div class="modal-card cartoon-card">
       <div class="card-head">
         <h2>🏆 Leaderboard Global</h2>
         <button class="btn-mini" id="btnCloseLeaderboard">✕ Tutup</button>
+      </div>
+      <div class="lb-period-tabs" id="lbPeriodTabs">
+        <button type="button" class="lb-period-btn active" data-period="all">👑 All-Time</button>
+        <button type="button" class="lb-period-btn" data-period="week">📅 Minggu Ini</button>
+        <button type="button" class="lb-period-btn" data-period="today">🔥 Hari Ini</button>
       </div>
       <div class="lb-tabs" id="lbTabs">
         <button class="lb-tab active" data-tab="global">🌟 Global Top</button>

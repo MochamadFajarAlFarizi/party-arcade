@@ -33,7 +33,113 @@ async function sbFetch(path, { method = 'GET', body, prefer } = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-async function fetchLeaderboardPayload() {
+function getPeriodCutoffISO(period) {
+  const now = new Date();
+  if (period === 'today') {
+    // Start of current day in WIB (UTC+7)
+    const wibOffsetMs = 7 * 60 * 60 * 1000;
+    const wibNow = new Date(now.getTime() + wibOffsetMs);
+    wibNow.setUTCHours(0, 0, 0, 0);
+    return new Date(wibNow.getTime() - wibOffsetMs).toISOString();
+  }
+  if (period === 'week') {
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  return null;
+}
+
+function aggregateFromScores(rows) {
+  const byPlayer = new Map();
+  for (const r of rows) {
+    const k = r.player_key;
+    let rec = byPlayer.get(k);
+    if (!rec) {
+      rec = {
+        name: r.name,
+        color: r.color || '#FF5E7E',
+        hat: r.hat || 'headset',
+        totalScore: 0,
+        wins: 0,
+        gamesPlayed: 0,
+        bestStreak: 0,
+        _curStreak: 0,
+        perGame: {},
+      };
+      byPlayer.set(k, rec);
+    }
+    rec.name = r.name;
+    if (r.color) rec.color = r.color;
+    if (r.hat) rec.hat = r.hat;
+    const pts = Number(r.score) || 0;
+    rec.totalScore += pts;
+    rec.gamesPlayed += 1;
+    if (r.won) {
+      rec.wins += 1;
+      rec._curStreak += 1;
+      rec.bestStreak = Math.max(rec.bestStreak, rec._curStreak);
+    } else {
+      rec._curStreak = 0;
+    }
+    if (r.game_id && GAME_IDS.includes(r.game_id)) {
+      const g = rec.perGame[r.game_id] || { score: 0, wins: 0, played: 0, best: 0 };
+      g.score += pts;
+      g.played += 1;
+      g.best = Math.max(g.best, pts);
+      if (r.won) g.wins += 1;
+      rec.perGame[r.game_id] = g;
+    }
+  }
+
+  const all = [...byPlayer.values()];
+  const global = [...all]
+    .sort((a, b) => b.totalScore - a.totalScore || b.wins - a.wins)
+    .slice(0, 50)
+    .map((p, idx) => ({
+      rank: idx + 1,
+      name: p.name,
+      color: p.color,
+      hat: p.hat,
+      totalScore: p.totalScore,
+      wins: p.wins,
+      gamesPlayed: p.gamesPlayed,
+      winRate: p.gamesPlayed > 0 ? Math.round((p.wins / p.gamesPlayed) * 100) : 0,
+      bestStreak: p.bestStreak,
+    }));
+
+  const perGame = {};
+  for (const gid of GAME_IDS) {
+    perGame[gid] = all
+      .filter((p) => p.perGame[gid])
+      .sort((a, b) => b.perGame[gid].score - a.perGame[gid].score || b.perGame[gid].wins - a.perGame[gid].wins)
+      .slice(0, 10)
+      .map((p, idx) => ({
+        rank: idx + 1,
+        name: p.name,
+        color: p.color,
+        hat: p.hat,
+        score: p.perGame[gid].score,
+        wins: p.perGame[gid].wins,
+        best: p.perGame[gid].best,
+        played: p.perGame[gid].played,
+      }));
+  }
+
+  return { global, perGame };
+}
+
+async function fetchLeaderboardPayload(period = 'all') {
+  const cutoff = getPeriodCutoffISO(period);
+  if (cutoff) {
+    try {
+      const rows = await sbFetch(`match_scores?select=*&played_at=gte.${encodeURIComponent(cutoff)}&order=played_at.asc&limit=1000`);
+      const { global, perGame } = aggregateFromScores(Array.isArray(rows) ? rows : []);
+      return { updatedAt: new Date().toISOString(), period, global, perGame, recentMatches: [] };
+    } catch {
+      // Fallback cleanly if user hasn't run updated schema.sql yet
+      return { updatedAt: new Date().toISOString(), period, global: [], perGame: {}, recentMatches: [] };
+    }
+  }
+
   const [players, matches] = await Promise.all([
     sbFetch('leaderboard_players?select=*&order=total_score.desc,wins.desc&limit=200'),
     sbFetch('recent_matches?select=*&order=created_at.desc&limit=10'),
@@ -72,6 +178,7 @@ async function fetchLeaderboardPayload() {
 
   return {
     updatedAt: new Date().toISOString(),
+    period: 'all',
     global,
     perGame,
     recentMatches: (Array.isArray(matches) ? matches : []).map((m) => ({
@@ -88,8 +195,13 @@ async function fetchLeaderboardPayload() {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const { url, key } = getSupabaseCreds();
+  const parsedUrl = new URL(req.url || '/', 'http://localhost');
+  const period = ['today', 'week', 'all'].includes(parsedUrl.searchParams.get('period'))
+    ? parsedUrl.searchParams.get('period')
+    : 'all';
+
   if (!url || !key) {
-    return res.status(200).json({ updatedAt: new Date().toISOString(), global: [], perGame: {}, recentMatches: [] });
+    return res.status(200).json({ updatedAt: new Date().toISOString(), period, global: [], perGame: {}, recentMatches: [] });
   }
 
   try {
@@ -104,6 +216,8 @@ export default async function handler(req, res) {
         const existingRows = await sbFetch(`leaderboard_players?player_key=in.(${inList})`) || [];
         const existingMap = new Map(existingRows.map((r) => [r.player_key, r]));
 
+        const nowIso = new Date().toISOString();
+        const matchScoreRows = [];
         const upserts = humans.map((entry) => {
           const cleanName = entry.name.trim().slice(0, 16);
           const pKey = cleanName.toLowerCase();
@@ -125,6 +239,17 @@ export default async function handler(req, res) {
             };
           }
 
+          matchScoreRows.push({
+            player_key: pKey,
+            name: cleanName,
+            color: entry.color || prev?.color || '#FF5E7E',
+            hat: entry.hat || prev?.hat || 'headset',
+            game_id: gameId || 'party-cup',
+            score: pts,
+            won,
+            played_at: nowIso,
+          });
+
           return {
             player_key: pKey,
             name: cleanName,
@@ -136,7 +261,7 @@ export default async function handler(req, res) {
             current_streak: curStreak,
             best_streak: bestStreak,
             per_game: perGame,
-            last_played_at: new Date().toISOString(),
+            last_played_at: nowIso,
           };
         });
 
@@ -145,6 +270,13 @@ export default async function handler(req, res) {
           body: upserts,
           prefer: 'resolution=merge-duplicates,return=minimal',
         });
+
+        // Best-effort write into match_scores for Today/Week filters
+        await sbFetch('match_scores', {
+          method: 'POST',
+          body: matchScoreRows,
+          prefer: 'return=minimal',
+        }).catch(() => {});
 
         const winner = standings[0];
         await sbFetch('recent_matches', {
@@ -160,11 +292,11 @@ export default async function handler(req, res) {
         });
       }
 
-      const fresh = await fetchLeaderboardPayload();
+      const fresh = await fetchLeaderboardPayload('all');
       return res.status(200).json(fresh);
     }
 
-    const data = await fetchLeaderboardPayload();
+    const data = await fetchLeaderboardPayload(period);
     return res.status(200).json(data);
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Leaderboard error', global: [], perGame: {}, recentMatches: [] });
