@@ -5,9 +5,15 @@ const GAME_IDS = [
   'trivia-rush', 'reflex-duel', 'math-panic',
 ];
 
+function cleanUrl(raw) {
+  const s = String(raw || '').trim().replace(/^["']|["']$/g, '');
+  if (!s) return '';
+  try { return new URL(s).origin; } catch { return s.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, ''); }
+}
+
 function getSupabaseCreds() {
-  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '');
-  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  const url = cleanUrl(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, '');
   return { url, key };
 }
 

@@ -1,6 +1,12 @@
+function cleanUrl(raw) {
+  const s = String(raw || '').trim().replace(/^["']|["']$/g, '');
+  if (!s) return '';
+  try { return new URL(s).origin; } catch { return s.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, ''); }
+}
+
 export default function handler(req, res) {
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  const supabaseUrl = cleanUrl(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, '');
 
   res.setHeader('Cache-Control', 'no-store');
   if (!supabaseUrl || !supabaseAnonKey) {
