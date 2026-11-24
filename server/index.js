@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WSServer } from './ws-server.js';
 import { LeaderboardStore } from './leaderboard.js';
-import { RoomManager, GAME_CATALOG } from './room-manager.js';
+import { RoomManager, GAME_CATALOG } from '../public/engine/room-manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -31,6 +31,12 @@ export function createPartyServer({ port = Number(process.env.PORT) || 3456, lea
     if (pathname === '/api/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, rooms: rooms.rooms.size, games: GAME_CATALOG.length }));
+      return;
+    }
+
+    if (pathname === '/api/config') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify({ mode: 'ws' }));
       return;
     }
 

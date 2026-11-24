@@ -5,6 +5,7 @@ import { ArenaView } from './games/arena-view.js';
 import { DrawView } from './games/draw-view.js';
 import { WordView } from './games/word-view.js';
 import { PartyView } from './games/party-view.js';
+import { GameTransport } from './transport.js';
 
 const STORAGE_KEY = 'party_pop_profile_v1';
 const EMOTES_KEY = 'party_pop_custom_emotes_v1';
@@ -469,46 +470,33 @@ const wordView = new WordView((payload) => sendWS({ type: 'game_action', ...payl
 const partyView = new PartyView((payload) => sendWS({ type: 'game_action', ...payload }));
 const PARTY_GAME_IDS = new Set(['trivia-rush', 'reflex-duel', 'math-panic']);
 
-// ===== WEBSOCKET CONNECTION =====
+// ===== DUAL-MODE TRANSPORT (Local WS or Vercel + Supabase Realtime) =====
+const transport = new GameTransport({
+  onStatus(state, label) {
+    const pill = document.getElementById('connPill');
+    app.connected = state === 'ok';
+    pill.className = `conn-pill ${state}`;
+    pill.innerHTML = `<i class="dot"></i> ${label}`;
+    if (state === 'ok') {
+      const params = new URLSearchParams(location.search);
+      const inviteCode = params.get('room');
+      if (inviteCode && !app.roomCode) {
+        document.getElementById('inputRoomCode').value = inviteCode.toUpperCase().slice(0, 4);
+        toast(`📩 Kode room ${inviteCode.toUpperCase()} siap! Klik MASUK.`);
+      }
+    }
+  },
+  onMessage(msg) {
+    handleServerMessage(msg);
+  },
+});
+
 function sendWS(obj) {
-  if (app.ws && app.ws.readyState === WebSocket.OPEN) {
-    app.ws.send(JSON.stringify(obj));
-  }
+  transport.send(obj);
 }
 
 function connectWS() {
-  const pill = document.getElementById('connPill');
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/ws`);
-  app.ws = ws;
-
-  ws.addEventListener('open', () => {
-    app.connected = true;
-    pill.className = 'conn-pill ok';
-    pill.innerHTML = '<i class="dot"></i> Online';
-    sendWS({ type: 'get_leaderboard' });
-
-    // Auto-fill invite code from URL (?room=XXXX)
-    const params = new URLSearchParams(location.search);
-    const inviteCode = params.get('room');
-    if (inviteCode && !app.roomCode) {
-      document.getElementById('inputRoomCode').value = inviteCode.toUpperCase().slice(0, 4);
-      toast(`📩 Kode room ${inviteCode.toUpperCase()} siap! Klik MASUK.`);
-    }
-  });
-
-  ws.addEventListener('close', () => {
-    app.connected = false;
-    pill.className = 'conn-pill err';
-    pill.innerHTML = '<i class="dot"></i> Reconnecting...';
-    setTimeout(connectWS, 1800);
-  });
-
-  ws.addEventListener('message', (ev) => {
-    let msg;
-    try { msg = JSON.parse(ev.data); } catch { return; }
-    handleServerMessage(msg);
-  });
+  transport.connect();
 }
 
 let lastCountdownText = '';
@@ -548,6 +536,12 @@ function handleServerMessage(msg) {
     case 'error':
       sfx.play('wrong');
       toast(`⚠️ ${msg.message}`);
+      break;
+
+    case 'host_left':
+      app.roomCode = null;
+      app.roomState = null;
+      showScreen('home');
       break;
 
     case 'room_state':

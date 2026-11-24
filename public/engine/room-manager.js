@@ -241,7 +241,10 @@ export class Room {
     });
 
     this.lastTickAt = Date.now();
-    this.tickHandle = setInterval(() => this._tick(), 33);
+    const turnBased = ['quick-draw', 'word-bomb', 'trivia-rush', 'math-panic'].includes(gameId);
+    const defaultTick = this.manager.tickMs || 33;
+    const intervalMs = turnBased ? Math.max(defaultTick, 120) : defaultTick;
+    this.tickHandle = setInterval(() => this._tick(), intervalMs);
   }
 
   _tick() {
@@ -414,6 +417,10 @@ export class Room {
   }
 
   broadcast(obj, excludeId = null) {
+    if (typeof this.manager.onRoomBroadcast === 'function') {
+      this.manager.onRoomBroadcast(this, obj, excludeId);
+      return;
+    }
     const raw = JSON.stringify(obj);
     for (const p of this.players.values()) {
       if (p.ws && p.id !== excludeId) {

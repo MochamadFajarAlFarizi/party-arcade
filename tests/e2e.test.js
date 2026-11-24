@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createPartyServer } from '../server/index.js';
-import { isValidWord } from '../server/dictionary.js';
+import { isValidWord } from '../public/engine/dictionary.js';
 
 function connectClient(port) {
   return new Promise((resolve, reject) => {
