@@ -54,7 +54,7 @@ export class BaseGame {
     this.elapsed = 0;
     this.finished = false;
     this.events = [];
-    this.countdown = 3.0;
+    this.countdown = 3.5;
     this.phase = 'countdown'; // countdown | playing | ended
   }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#38BDF8" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>PARTY POP! — 28 Mini-Game Mabar</title>
+  <title>PARTY POP! — 32 Mini-Game Mabar</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/favicon.svg" />
   <link rel="manifest" href="/manifest.json" />
@@ -50,8 +50,8 @@
   <main id="screenHome" class="screen active">
     <section class="home-hero">
       <div class="hero-pill">✨ 2–12 PEMAIN • WEB & HP • MAIN BARENG DISCORDAN</div>
-      <h1 class="hero-title">Satu Web, <span>28 Game Rusuh!</span></h1>
-      <p class="hero-sub">Mode Co-op/Tim Bebas • Game Perpecahan (Khianati, Fitnah, Rampok, Jembatan Lava) • Trivia 105+ Soal • +20 Lainnya!</p>
+      <h1 class="hero-title">Satu Web, <span>32 Game Rusuh!</span></h1>
+      <p class="hero-sub">Mode Co-op/Tim • Board Game (Ular Tangga, Monopoli, UNO, Ludo) • Game Perpecahan • Trivia 105+ Soal • +20 Lainnya!</p>
     </section>
 
     <section class="home-grid">
@@ -98,7 +98,7 @@
         </div>
 
         <div class="game-showcase">
-          <h3>🎮 28 Mini-Game Siap Main</h3>
+          <h3>🎮 32 Mini-Game Siap Main</h3>
           <div class="mini-badges" id="homeGameBadges"></div>
         </div>
       </div>
@@ -188,11 +188,12 @@
         </div>
 
         <div class="card-head" style="margin-top: 10px;">
-          <h2>🎮 Pilih Game (28 Tersedia)</h2>
+          <h2>🎮 Pilih Game (32 Tersedia)</h2>
           <button class="btn-mini btn-purple-mini" id="btnRandomGame">🎲 Spin Acak!</button>
         </div>
         <div id="gameCategoryFilters" class="cat-filters">
-          <button type="button" class="lb-tab active" data-cat="ALL">🌟 Semua (28)</button>
+          <button type="button" class="lb-tab active" data-cat="ALL">🌟 Semua (32)</button>
+          <button type="button" class="lb-tab" data-cat="Board">🎲 Board Game</button>
           <button type="button" class="lb-tab" data-cat="Perpecahan">😈 Perpecahan</button>
           <button type="button" class="lb-tab" data-cat="Action">🔥 Action</button>
           <button type="button" class="lb-tab" data-cat="Survival">🏃 Survival</button>
@@ -217,11 +218,23 @@
       </div>
       <div class="hud-center" id="hudCenterInfo">Siap-siap...</div>
       <div class="hud-right">
+        <button class="btn-mini btn-blue-mini" id="btnGuideGame" title="Petunjuk Cara Main">❓</button>
         <button class="btn-mini btn-yellow-mini" id="btnGameEmoteTray" title="Kirim Emot / Stiker Custom">😄 Emot</button>
         <button class="btn-mini" id="btnMuteGame" title="Suara On/Off">🔊</button>
         <button class="btn-mini" id="btnFullscreenGame" title="Layar Penuh">⛶</button>
         <button class="btn-mini" id="btnAbortGame" title="Kembali ke Lobby (Host)" hidden>⏹ Lobby</button>
       </div>
+    </div>
+
+    <!-- Quick In-Game How-to-Play Popover -->
+    <div id="guidePopup" class="guide-popup cartoon-card hidden">
+      <div class="card-head" style="margin-bottom:6px">
+        <h3 id="guidePopupTitle" style="margin:0;font-size:16px">❓ Cara Main</h3>
+        <button type="button" class="btn-mini" id="btnCloseGuide">✕</button>
+      </div>
+      <div class="brief-line"><b>🎯 Tujuan:</b> <span id="guidePopupGoal"></span></div>
+      <div class="brief-line"><b>🎮 Kontrol:</b> <span id="guidePopupControls"></span></div>
+      <div class="brief-line brief-tip"><b>💡 Tips:</b> <span id="guidePopupTip"></span></div>
     </div>
 
     <!-- Floating In-Game Emote Picker Tray (PC & HP) -->
@@ -238,9 +251,28 @@
       <button class="btn-mini btn-purple-mini" id="btnAddCustomEmoteGame" type="button">➕ Upload Emot</button>
     </div>
 
-    <!-- Banner Overlay -->
+    <!-- Banner Overlay & Pre-Round How-to-Play Briefing Countdown -->
     <div id="gameBanner" class="game-banner hidden"></div>
-    <div id="countdownOverlay" class="countdown-overlay hidden">3</div>
+    <div id="countdownOverlay" class="countdown-overlay hidden">
+      <div class="intro-brief-card cartoon-card">
+        <div class="intro-brief-head">
+          <span class="intro-brief-icon" id="introBriefIcon">🎮</span>
+          <div style="text-align:left">
+            <span class="intro-brief-tag" id="introBriefTag">📖 PETUNJUK RONDE</span>
+            <h2 id="introBriefTitle" style="margin:2px 0 0;font-size:clamp(19px,3vw,26px)">Game</h2>
+          </div>
+        </div>
+        <div class="intro-brief-body">
+          <div class="brief-line"><b>🎯 Tujuan:</b> <span id="introBriefGoal">...</span></div>
+          <div class="brief-line"><b>🎮 Kontrol:</b> <span id="introBriefControls">...</span></div>
+          <div class="brief-line brief-tip"><b>💡 Tips:</b> <span id="introBriefTip">...</span></div>
+        </div>
+        <div class="intro-brief-footer">
+          <span>MULAI DALAM</span>
+          <div class="intro-brief-count" id="introBriefCount">3</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Mobile Legends Style Hold-and-Swipe Radial Emote Wheel -->
     <div id="radialWheel" class="radial-wheel hidden" aria-hidden="true">
@@ -324,10 +356,20 @@
       </form>
     </div>
 
-    <!-- PARTY QUIZ / REFLEX / MATH VIEW -->
+    <!-- PARTY QUIZ / REFLEX / MATH / PERPECAHAN VIEW -->
     <div id="viewParty" class="game-view party-view hidden">
       <div id="partyPlayersBar" class="party-players-bar"></div>
       <div id="partyStage" class="party-stage"></div>
+    </div>
+
+    <!-- BOARD GAMES VIEW (Ular Tangga, Monopoli, Kartu UNO, Ludo) -->
+    <div id="viewBoard" class="game-view board-view hidden">
+      <div id="boardPlayersBar" class="party-players-bar"></div>
+      <div id="boardLogBanner" class="board-log-banner">🎲 Bersiap memulai papan permainan...</div>
+      <div class="board-canvas-wrap">
+        <canvas id="boardCanvas" width="1120" height="560"></canvas>
+      </div>
+      <div id="boardControlsBar" class="board-controls-bar"></div>
     </div>
   </main>
 

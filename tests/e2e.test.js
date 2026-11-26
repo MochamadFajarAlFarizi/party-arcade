@@ -63,7 +63,7 @@ async function run() {
     const healthRes = await fetch(`http://127.0.0.1:${port}/api/health`);
     const health = await healthRes.json();
     assert.equal(health.ok, true);
-    assert.equal(health.games, 28);
+    assert.equal(health.games, 32);
 
     const htmlRes = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(htmlRes.status, 200);
@@ -127,9 +127,10 @@ async function run() {
     p1.send({ type: 'set_team_config', enabled: false });
     await p1.waitFor((m) => m.type === 'room_state' && m.teamMode === false);
 
-    // 4. Verify ALL 28 mini-games boot, accept input/actions, and produce valid state
+    // 4. Verify ALL 32 mini-games boot, accept input/actions, and produce valid state
     const gameIds = [
       'split-or-steal', 'blame-vote', 'greed-heist', 'betrayal-bridge',
+      'snakes-ladders', 'mini-monopoly', 'crazy-cards', 'ludo-blitz',
       'dash-blade', 'ricochet-duel', 'memory-rush', 'closest-wins',
       'bomb-pass', 'sumo-knockout', 'turf-paint', 'quick-draw', 'word-bomb', 'chaos-survival',
       'crown-chase', 'coin-rush', 'zombie-tag', 'bumper-soccer', 'meteor-shower', 'snake-party',
@@ -144,6 +145,40 @@ async function run() {
       // Receive live tick state
       const tickState = await p2.waitFor((m) => m.type === 'game_state' && m.state.gameId === gid);
       assert.equal(tickState.state.players.length, 4);
+
+      if (gid === 'snakes-ladders') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'sabotage' });
+        assert.equal(r.currentGame.players.find((p) => p.id === w1.playerId).sabotageLeft, 0);
+        assert.ok(r.currentGame.lastRoll?.value >= 1 && r.currentGame.lastRoll?.value <= 6);
+      }
+
+      if (gid === 'mini-monopoly') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'roll' });
+        assert.ok(r.currentGame.lastRoll?.value >= 1);
+      }
+
+      if (gid === 'crazy-cards') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        const beforeCount = r.currentGame.players[0].hand.length;
+        r.currentGame.handleAction(w1.playerId, { action: 'draw' });
+        assert.equal(r.currentGame.players[0].hand.length, beforeCount + 1);
+      }
+
+      if (gid === 'ludo-blitz') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'roll' });
+        assert.ok(r.currentGame.lastRoll?.value >= 1);
+      }
 
       if (gid === 'split-or-steal') {
         const r = rooms.rooms.get(code);
@@ -336,7 +371,7 @@ async function run() {
     p1.close();
     p2.close();
     p3.close();
-    console.log('✅ ALL E2E TESTS PASSED (28 mini-games, Team Mode, Perpecahan Pack, Party Cup, Rejoin, Leaderboard)!');
+    console.log('✅ ALL E2E TESTS PASSED (32 mini-games, 4 Board Games, Guides, Team Mode, Perpecahan Pack, Party Cup, Rejoin, Leaderboard)!');
   } finally {
     await app.stop();
     try { fs.unlinkSync(tmpLb); } catch { /* ignore */ }

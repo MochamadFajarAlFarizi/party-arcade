@@ -6,7 +6,7 @@ import { ARENA_W, ARENA_H, PLAYER_RADIUS, BaseGame, clamp, dist, pickRandom, ran
 export class SplitOrStealGame extends BaseGame {
   constructor(room, players) {
     super(room, 'split-or-steal');
-    this.countdown = 1.5;
+    this.countdown = 3.5;
     this.players = players.map((p) => ({
       id: p.id, name: p.name, color: p.color, hat: p.hat, team: p.team ?? 0, isBot: !!p.isBot,
       score: 0, choice: null, botAt: 0, betrayals: 0, betrayedBy: new Set(), lastDelta: 0,
@@ -221,7 +221,7 @@ const BLAME_THEMES = [
 export class BlameVoteGame extends BaseGame {
   constructor(room, players) {
     super(room, 'blame-vote');
-    this.countdown = 1.5;
+    this.countdown = 3.5;
     this.players = players.map((p) => ({
       id: p.id, name: p.name, color: p.color, hat: p.hat, team: p.team ?? 0, isBot: !!p.isBot,
       score: 0, vote: null, botAt: 0, shieldsLeft: 2, timesBlamed: 0, reflects: 0, lastDelta: 0,
@@ -453,7 +453,7 @@ const HEIST_RISK = [15, 30, 48, 66, 82];
 export class GreedHeistGame extends BaseGame {
   constructor(room, players) {
     super(room, 'greed-heist');
-    this.countdown = 1.5;
+    this.countdown = 3.5;
     this.players = players.map((p) => ({
       id: p.id, name: p.name, color: p.color, hat: p.hat, team: p.team ?? 0, isBot: !!p.isBot,
       score: 0, bag: 0, inside: true, sabotageLeft: 1, sabotages: 0, busted: 0, choice: null, botAt: 0,

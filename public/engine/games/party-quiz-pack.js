@@ -132,7 +132,7 @@ export class TriviaRushGame extends BaseGame {
     this.subPhase = 'question';
     this.timer = 10;
     this.botTimers = new Map();
-    this.countdown = 1.5;
+    this.countdown = 3.5;
   }
 
   onStart() {
@@ -238,7 +238,7 @@ export class ReflexDuelGame extends BaseGame {
     this.goStartAt = 0;
     this.hasBait = false;
     this.botTimers = new Map();
-    this.countdown = 1.5;
+    this.countdown = 3.5;
   }
 
   onStart() {
@@ -409,7 +409,7 @@ export class MathPanicGame extends BaseGame {
     this.subPhase = 'question';
     this.timer = 8.0;
     this.botTimers = new Map();
-    this.countdown = 1.5;
+    this.countdown = 3.5;
   }
 
   onStart() {
@@ -541,7 +541,7 @@ export class ClosestWinsGame extends BaseGame {
     this.subPhase = 'question'; // question | reveal
     this.timer = 13;
     this.botTimers = new Map();
-    this.countdown = 1.5;
+    this.countdown = 3.5;
   }
 
   onStart() {

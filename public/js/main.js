@@ -5,6 +5,8 @@ import { ArenaView } from './games/arena-view.js';
 import { DrawView } from './games/draw-view.js';
 import { WordView } from './games/word-view.js';
 import { PartyView } from './games/party-view.js';
+import { BoardView } from './games/board-view.js';
+import { getGameGuide } from './game-guides.js';
 import { GameTransport } from './transport.js';
 
 const STORAGE_KEY = 'party_pop_profile_v1';
@@ -240,7 +242,9 @@ function showScreen(name) {
     controls.setActive(false);
     arenaView.stop();
     wordView.stop();
+    boardView.stop();
     document.getElementById('countdownOverlay').classList.add('hidden');
+    document.getElementById('guidePopup')?.classList.add('hidden');
   }
 }
 
@@ -610,9 +614,13 @@ const drawView = new DrawView(
 );
 const wordView = new WordView((payload) => sendWS({ type: 'game_action', ...payload }));
 const partyView = new PartyView((payload) => sendWS({ type: 'game_action', ...payload }));
+const boardView = new BoardView((payload) => sendWS({ type: 'game_action', ...payload }));
 const PARTY_GAME_IDS = new Set([
   'trivia-rush', 'reflex-duel', 'math-panic', 'closest-wins',
   'split-or-steal', 'blame-vote', 'greed-heist',
+]);
+const BOARD_GAME_IDS = new Set([
+  'snakes-ladders', 'mini-monopoly', 'crazy-cards', 'ludo-blitz',
 ]);
 
 const TEAM_META = [
@@ -652,16 +660,37 @@ function connectWS() {
 }
 
 let lastCountdownText = '';
+function populateGameBriefing(gameId, meta) {
+  const guide = getGameGuide(gameId, meta);
+  const title = meta?.name || gameId;
+  const icon = meta?.icon || '🎮';
+  const tag = meta?.tag ? `📖 PETUNJUK • ${meta.tag.toUpperCase()}` : '📖 PETUNJUK RONDE';
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setText('introBriefIcon', icon);
+  setText('introBriefTag', tag);
+  setText('introBriefTitle', title);
+  setText('introBriefGoal', guide.goal);
+  setText('introBriefControls', guide.controls);
+  setText('introBriefTip', guide.tip);
+
+  setText('guidePopupTitle', `${icon} Cara Main: ${title}`);
+  setText('guidePopupGoal', guide.goal);
+  setText('guidePopupControls', guide.controls);
+  setText('guidePopupTip', guide.tip);
+}
+
 function updateCountdown(cd) {
   const el = document.getElementById('countdownOverlay');
+  const numEl = document.getElementById('introBriefCount');
   if (cd > 0) {
     const txt = String(Math.ceil(cd));
-    if (txt !== lastCountdownText) {
+    if (txt !== lastCountdownText || el.classList.contains('hidden')) {
       lastCountdownText = txt;
-      el.textContent = txt;
+      if (numEl) numEl.textContent = txt;
       el.classList.remove('hidden');
     }
-  } else if (lastCountdownText !== '') {
+  } else if (lastCountdownText !== '' || !el.classList.contains('hidden')) {
     lastCountdownText = '';
     el.classList.add('hidden');
   }
@@ -727,6 +756,13 @@ function handleServerMessage(msg) {
       } else if (PARTY_GAME_IDS.has(msg.state.gameId)) {
         partyView.updateState(msg.state, msg.events);
         document.getElementById('hudCenterInfo').textContent = `🎯 Ronde ${msg.state.round}/${msg.state.totalRounds}`;
+      } else if (BOARD_GAME_IDS.has(msg.state.gameId)) {
+        boardView.updateState(msg.state, msg.events);
+        const turnP = msg.state.players?.find((p) => p.id === msg.state.turnPlayerId);
+        const roundStr = msg.state.boardType === 'crazy-cards'
+          ? `🃏 Sisa ${msg.state.turnsLeft} giliran`
+          : `🎲 Ronde ${msg.state.round}/${msg.state.maxRounds}`;
+        document.getElementById('hudCenterInfo').textContent = `${roundStr} • Giliran: ${turnP?.name || '-'}`;
       } else {
         arenaView.updateState(msg.state, msg.events);
       }
@@ -1020,10 +1056,17 @@ function startGameView(msg) {
   document.getElementById('viewDraw').classList.add('hidden');
   document.getElementById('viewWord').classList.add('hidden');
   document.getElementById('viewParty').classList.add('hidden');
+  document.getElementById('viewBoard')?.classList.add('hidden');
+  document.getElementById('guidePopup')?.classList.add('hidden');
 
   arenaView.stop();
   wordView.stop();
+  boardView.stop();
   controls.setActive(false);
+
+  // Show pre-round How-to-Play briefing immediately!
+  populateGameBriefing(msg.gameId, app.lastGameMeta);
+  if (!msg.spectating) updateCountdown(3.5);
 
   if (msg.gameId === 'quick-draw') {
     document.getElementById('viewDraw').classList.remove('hidden');
@@ -1034,6 +1077,9 @@ function startGameView(msg) {
   } else if (PARTY_GAME_IDS.has(msg.gameId)) {
     document.getElementById('viewParty').classList.remove('hidden');
     partyView.start(app.myId);
+  } else if (BOARD_GAME_IDS.has(msg.gameId)) {
+    document.getElementById('viewBoard').classList.remove('hidden');
+    boardView.start(app.myId);
   } else {
     document.getElementById('viewArena').classList.remove('hidden');
     arenaView.start(app.myId);
@@ -1537,6 +1583,13 @@ function bindEvents() {
   });
 
   document.getElementById('btnAbortGame').addEventListener('click', () => sendWS({ type: 'back_to_lobby' }));
+  document.getElementById('btnGuideGame')?.addEventListener('click', () => {
+    sfx.play('pop');
+    document.getElementById('guidePopup')?.classList.toggle('hidden');
+  });
+  document.getElementById('btnCloseGuide')?.addEventListener('click', () => {
+    document.getElementById('guidePopup')?.classList.add('hidden');
+  });
   document.getElementById('btnNextRound').addEventListener('click', () => sendWS({ type: 'next_cup_round' }));
   document.getElementById('btnBackLobby').addEventListener('click', () => sendWS({ type: 'back_to_lobby' }));
   document.getElementById('btnPlayAgain').addEventListener('click', () => {

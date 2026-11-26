@@ -12,6 +12,7 @@ import { SharkEscapeGame, DodgeballGame, TurboRaceGame } from './games/action-pa
 import { TriviaRushGame, ReflexDuelGame, MathPanicGame, ClosestWinsGame } from './games/party-quiz-pack.js';
 import { DashBladeGame, RicochetDuelGame, MemoryRushGame } from './games/competitive-pack.js';
 import { SplitOrStealGame, BlameVoteGame, GreedHeistGame, BetrayalBridgeGame } from './games/perpecahan-pack.js';
+import { SnakesLaddersGame, MiniMonopolyGame, CrazyCardsGame, LudoBlitzGame } from './games/board-pack.js';
 
 export const TEAM_DEFS = [
   { id: 0, key: 'red', name: 'Tim Merah', short: 'MERAH', icon: '🔴', color: '#EF4444', bg: '#FEE2E2' },
@@ -25,6 +26,10 @@ export const GAME_CATALOG = [
   { id: 'blame-vote', name: 'Fitnah & Tumbal', icon: '🔪', desc: 'Tunjuk tumbal buat rampas poin — awas 🛡️ Perisai Pantul!', color: '#7C3AED', tag: 'Perpecahan' },
   { id: 'greed-heist', name: 'Rampok Brankas', icon: '🏦', desc: 'Lanjut jarah, kabur aman, atau 😈 TEKAN ALARM buat jebak teman!', color: '#D97706', tag: 'Perpecahan' },
   { id: 'betrayal-bridge', name: 'Jembatan Lava', icon: '🌋', desc: 'Rebutan ubin aman & dorong teman jatuh ke lava!', color: '#DC2626', tag: 'Perpecahan' },
+  { id: 'snakes-ladders', name: 'Ular Tangga Rusuh', icon: '🐍', desc: 'Balapan 50 petak penuh tangga, ular, tukar posisi & sabotase!', color: '#16A34A', tag: 'Board' },
+  { id: 'mini-monopoly', name: 'Monopoli Kilat', icon: '🏠', desc: 'Borong kota, bangun hotel, tarik sewa & bikin teman bangkrut!', color: '#0284C7', tag: 'Board' },
+  { id: 'crazy-cards', name: 'Kartu UNO Rusuh', icon: '🃏', desc: 'Habiskan kartumu dulu — lempar +2, Skip, Reverse & Wild +4!', color: '#E11D48', tag: 'Board' },
+  { id: 'ludo-blitz', name: 'Ludo Party Kilat', icon: '🏝️', desc: 'Bawa 2 pion ke Finish & tendang pion teman balik ke markas!', color: '#EA580C', tag: 'Board' },
   { id: 'dash-blade', name: 'Dash Blade PvP', icon: '⚔️', desc: 'Duel pedang 3 HP! Dash tebas lawan — bentrok dash jadi CLASH!', color: '#EF4444', tag: 'Action' },
   { id: 'ricochet-duel', name: 'Ricochet Arena', icon: '🔫', desc: 'Tembak bola energi memantul dari dinding & pilar cover!', color: '#6366F1', tag: 'Action' },
   { id: 'bomb-pass', name: 'Bomb Pass', icon: '💣', desc: 'Oper bom sebelum meledak! Dash & hindari!', color: '#FF5E7E', tag: 'Action' },
@@ -56,6 +61,10 @@ const GAME_CONSTRUCTORS = {
   'blame-vote': BlameVoteGame,
   'greed-heist': GreedHeistGame,
   'betrayal-bridge': BetrayalBridgeGame,
+  'snakes-ladders': SnakesLaddersGame,
+  'mini-monopoly': MiniMonopolyGame,
+  'crazy-cards': CrazyCardsGame,
+  'ludo-blitz': LudoBlitzGame,
   'dash-blade': DashBladeGame,
   'ricochet-duel': RicochetDuelGame,
   'memory-rush': MemoryRushGame,
@@ -450,6 +459,7 @@ export class Room {
     const turnBased = [
       'quick-draw', 'word-bomb', 'trivia-rush', 'math-panic', 'closest-wins',
       'split-or-steal', 'blame-vote', 'greed-heist',
+      'snakes-ladders', 'mini-monopoly', 'crazy-cards', 'ludo-blitz',
     ].includes(gameId);
     const defaultTick = this.manager.tickMs || 33;
     const intervalMs = turnBased ? Math.max(defaultTick, 120) : defaultTick;
