@@ -1,4 +1,5 @@
 const GAME_IDS = [
+  'split-or-steal', 'blame-vote', 'greed-heist', 'betrayal-bridge',
   'dash-blade', 'ricochet-duel', 'memory-rush', 'closest-wins',
   'bomb-pass', 'sumo-knockout', 'turf-paint', 'quick-draw', 'word-bomb', 'chaos-survival',
   'crown-chase', 'coin-rush', 'zombie-tag', 'bumper-soccer', 'meteor-shower', 'snake-party',

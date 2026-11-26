@@ -1862,3 +1862,201 @@ body.in-game .top-bar {
   .word-input-bar { flex-wrap: wrap; }
   .word-input { flex: 1; min-width: 140px; }
 }
+
+/* ===== TEAM / CO-OP MODE & PERPECAHAN GAMES UI ===== */
+.team-panel {
+  background: #F8FAFC;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  padding: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.team-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.team-mode-btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 2.5px solid var(--ink);
+  background: #FFFFFF;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--ink);
+  transition: transform 0.08s;
+}
+.team-mode-btn.active {
+  background: #FDE047;
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+.team-mode-btn:disabled { cursor: default; opacity: 0.88; }
+.team-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.team-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.team-preset-row .btn-mini.active-mini {
+  background: #FDE047;
+  transform: translateY(1px);
+}
+.team-score-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.team-score-pill {
+  font-size: 11.5px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+.team-tip {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748B;
+}
+.team-pill {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.team-pill:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.team-pill:disabled { cursor: default; opacity: 0.9; }
+.team-pill-sm {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  margin-right: 4px;
+}
+
+/* Perpecahan Party Games UI */
+.partner-callout {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 2.6vw, 22px);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.partner-badge {
+  background: #FFFBEB;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 4px 12px;
+  box-shadow: 0 3px 0 var(--ink);
+}
+.perpecahan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.betray-choice-btn {
+  min-width: 175px;
+  flex: 1 1 175px;
+  max-width: 260px;
+  flex-direction: column;
+  line-height: 1.25;
+  padding: 14px 16px;
+}
+.betray-choice-btn small {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0.92;
+}
+.betray-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 36dvh;
+  overflow-y: auto;
+  text-align: left;
+}
+.betray-result-card {
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 9px 12px;
+  box-shadow: 0 4px 0 var(--ink);
+}
+.betray-result-card.tone-peace { background: #DCFCE7; }
+.betray-result-card.tone-betray { background: #FFE4E6; }
+.betray-result-card.tone-crash { background: #FFEDD5; }
+.betray-result-card.tone-safe { background: #F1F5F9; }
+.betray-headline {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.betray-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.reveal-member {
+  font-size: 12px;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #FFFFFF;
+}
+.reveal-member.is-steal { background: #FECDD3; }
+.reveal-member.is-split { background: #BBF7D0; }
+
+.blame-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 6px 0;
+}
+.blame-target-btn {
+  padding: 10px 12px;
+  font-size: 14.5px;
+}
+.heist-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.heist-stat {
+  background: #FEF9C3;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--ink);
+}

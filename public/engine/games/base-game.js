@@ -27,6 +27,7 @@ export function spawnRing(players, cx = ARENA_W / 2, cy = ARENA_H / 2, radius = 
       name: p.name,
       color: p.color,
       hat: p.hat,
+      team: p.team ?? 0,
       isBot: !!p.isBot,
       x: cx + Math.cos(angle) * radius,
       y: cy + Math.sin(angle) * radius,
@@ -85,6 +86,17 @@ export class BaseGame {
   }
 
   handleAction(_playerId, _msg) {}
+
+  isAlly(a, b) {
+    return !!this.room?.isSameTeam?.(a, b);
+  }
+
+  isTeamSurvivalOver(alive) {
+    if (alive.length <= 1) return true;
+    if (!this.room?.teamMode) return false;
+    const teams = new Set(alive.map((e) => e.team));
+    return teams.size <= 1;
+  }
 
   step(dt) {
     if (this.finished) return;

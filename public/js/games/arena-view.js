@@ -13,6 +13,8 @@ const POWERUP_META = {
 
 const TILE_PALETTE = ['#FF5E7E', '#FFD166', '#22C55E', '#38BDF8'];
 const TILE_ICONS = ['❤️', '⭐', '🍀', '💎'];
+const TEAM_COLORS = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308'];
+const TEAM_LABELS = ['M', 'B', 'H', 'K'];
 
 /**
  * 60 FPS Vibrant Cartoon Canvas Renderer for Bomb Pass, Sumo Knockout,
@@ -140,6 +142,9 @@ export class ArenaView {
     } else if (s.gameId === 'memory-rush') {
       const label = s.subPhase === 'preview' ? '👀 HAFALKAN ⭐' : s.subPhase === 'hide' ? '❓ LARI KE ⭐!' : '💥 MELEDAK!';
       this.hudCenterEl.textContent = `🧩 Ronde ${s.wave}/${s.maxWaves} • ${label} (${s.subTimer}s)`;
+    } else if (s.gameId === 'betrayal-bridge') {
+      const label = s.cyclePhase === 'warning' ? '⚠️ UBIN RETAK! DORONG!' : s.cyclePhase === 'drop' ? '🌋 LAVA TERBUKA!' : '👑 REBUT PETI & POSISI!';
+      this.hudCenterEl.textContent = `🌋 ${label} • ⏱ ${s.timeLeft}s`;
     } else if (s.gameId === 'turbo-race') {
       const me = s.players.find((p) => p.id === this.myId);
       this.hudCenterEl.textContent = `🏁 Lap ${me?.lap || 1}/3 • ⏱ ${s.timeLeft}s`;
@@ -192,6 +197,24 @@ export class ArenaView {
   }
 
   _drawFullBleedBackdrop(ctx, vw, vh, gameId, time) {
+    if (gameId === 'betrayal-bridge') {
+      const grad = ctx.createLinearGradient(0, 0, 0, vh);
+      grad.addColorStop(0, '#7F1D1D');
+      grad.addColorStop(0.5, '#DC2626');
+      grad.addColorStop(1, '#F97316');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, vw, vh);
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
+      for (let i = 0; i < 12; i++) {
+        const bx = ((i * 173 + time * 18) % (vw + 80)) - 40;
+        const by = ((i * 97 + Math.sin(time * 2 + i) * 28) % vh + vh) % vh;
+        ctx.beginPath();
+        ctx.arc(bx, by, 14 + Math.sin(time * 3 + i) * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
     if (gameId === 'sumo-knockout' || gameId === 'shark-escape') {
       const grad = ctx.createLinearGradient(0, 0, 0, vh);
       grad.addColorStop(0, '#0284C7');
@@ -288,7 +311,11 @@ export class ArenaView {
     else if (s.gameId === 'dash-blade') this._drawDashBlade(ctx, s, players, time);
     else if (s.gameId === 'ricochet-duel') this._drawRicochet(ctx, s, players, time);
     else if (s.gameId === 'memory-rush') this._drawMemoryRush(ctx, s, players, time);
+    else if (s.gameId === 'betrayal-bridge') this._drawBetrayalBridge(ctx, s, players, time);
 
+    if (s.teamMode && s.gameId !== 'bumper-soccer') {
+      this._drawTeamBadges(ctx, players, time);
+    }
     this._drawPlayerEmotes(ctx, players);
     this.vfx.draw(ctx);
     ctx.restore();
@@ -1102,6 +1129,104 @@ export class ArenaView {
       drawCartoonBean(ctx, {
         x: p.rx, y: p.ry, r: 21, color: p.color, hat: p.hat,
         facing: p.facing, speed: Math.hypot(p.vx, p.vy), time, name: p.name, isMe: p.id === this.myId,
+      });
+    }
+  }
+
+  _drawTeamBadges(ctx, players, time) {
+    for (const p of players) {
+      if (p.alive === false) continue;
+      const tid = p.team ?? 0;
+      const col = TEAM_COLORS[tid] || '#EF4444';
+      // Crisp colored team ring under feet
+      ctx.save();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.ellipse(p.rx, p.ry + 18, 25 + Math.sin(time * 5) * 1.5, 11, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // Small letter badge on top-right of character
+      ctx.fillStyle = col;
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(p.rx + 22, p.ry - 20, 10, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 11px Nunito, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(TEAM_LABELS[tid] || 'T', p.rx + 22, p.ry - 19.5);
+      ctx.restore();
+    }
+  }
+
+  _drawBetrayalBridge(ctx, s, players, time) {
+    const padX = 110; const padY = 66;
+    const cols = s.cols || 6; const rows = s.rows || 4;
+    const cw = (W - padX * 2) / cols;
+    const ch = (H - padY * 2) / rows;
+    const tiles = s.tiles || [];
+
+    // Molten bridge frame border
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+    ctx.lineWidth = 5;
+    roundRectPath(ctx, padX - 8, padY - 8, W - padX * 2 + 16, H - padY * 2 + 16, 20);
+    ctx.stroke();
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        const st = tiles[idx] ?? 2;
+        if (st === 0) continue; // dropped into lava!
+        let x = padX + c * cw;
+        let y = padY + r * ch;
+        if (st === 1) {
+          x += Math.sin(time * 42 + idx) * 3.5;
+          y += Math.cos(time * 38 + idx) * 2.5;
+        }
+        // Tile depth shadow
+        ctx.fillStyle = 'rgba(30,27,75,0.45)';
+        roundRectPath(ctx, x + 5, y + 11, cw - 10, ch - 10, 14);
+        ctx.fill();
+
+        const isSafeHighlight = s.cyclePhase !== 'safe' && st === 2;
+        ctx.fillStyle = st === 1 ? '#FB923C' : isSafeHighlight ? '#4ADE80' : '#E2E8F0';
+        ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+        roundRectPath(ctx, x + 5, y + 5, cw - 10, ch - 10, 14);
+        ctx.fill(); ctx.stroke();
+
+        if (st === 1) {
+          // Cracking lines
+          ctx.strokeStyle = '#991B1B'; ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x + 22, y + 18); ctx.lineTo(x + cw * 0.52, y + ch * 0.5); ctx.lineTo(x + cw - 20, y + ch - 22);
+          ctx.moveTo(x + cw * 0.52, y + ch * 0.5); ctx.lineTo(x + 30, y + ch - 20);
+          ctx.stroke();
+        } else if (isSafeHighlight) {
+          ctx.font = '700 14px Fredoka, sans-serif'; ctx.fillStyle = '#14532D';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('AMAN!', x + cw / 2, y + ch / 2);
+        }
+      }
+    }
+
+    // Golden Loot Chests
+    for (const chObj of s.chests || []) {
+      const bob = Math.sin(time * 6) * 4;
+      ctx.fillStyle = '#FACC15'; ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+      roundRectPath(ctx, chObj.x - 22, chObj.y - 18 + bob, 44, 34, 10);
+      ctx.fill(); ctx.stroke();
+      ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('👑', chObj.x, chObj.y + bob);
+    }
+
+    for (const p of players) {
+      if (!p.alive) continue;
+      drawCartoonBean(ctx, {
+        x: p.rx, y: p.ry, r: 22, color: p.color, hat: p.hat,
+        facing: p.facing, speed: Math.hypot(p.vx, p.vy), time,
+        name: `${p.name} (${p.score})`, isMe: p.id === this.myId,
+        turbo: p.dashing || p.boost,
       });
     }
   }

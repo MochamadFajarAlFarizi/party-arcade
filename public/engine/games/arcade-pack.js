@@ -312,7 +312,7 @@ export class BumperSoccerGame extends BaseGame {
   constructor(room, players) {
     super(room, 'bumper-soccer');
     this.entities = players.map((p, i) => {
-      const team = i % 2 === 0 ? 'red' : 'blue';
+      const team = room?.teamMode ? ((p.team ?? i) % 2 === 0 ? 'red' : 'blue') : (i % 2 === 0 ? 'red' : 'blue');
       return {
         id: p.id, name: p.name, color: team === 'red' ? '#FF5E7E' : '#38BDF8', hat: p.hat, isBot: !!p.isBot,
         team, x: team === 'red' ? 280 : ARENA_W - 280, y: 160 + Math.floor(i / 2) * 110,

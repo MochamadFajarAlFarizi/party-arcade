@@ -57,9 +57,11 @@ export class SumoKnockoutGame extends BaseGame {
       targetY = nearestPu.y;
     } else if (alive.length > 0) {
       // Push nearest opponent who is close to edge
-      let best = alive[0];
+      const targets = alive.filter((o) => !this.isAlly(bot, o));
+      const pool = targets.length ? targets : alive;
+      let best = pool[0];
       let bestScore = -Infinity;
-      for (const o of alive) {
+      for (const o of pool) {
         const sc = dist(o.x, o.y, CX, CY) * 1.1 - dist(bot.x, bot.y, o.x, o.y);
         if (sc > bestScore) {
           bestScore = sc;
@@ -82,7 +84,7 @@ export class SumoKnockoutGame extends BaseGame {
 
   update(dt) {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1 || this.elapsed > 75) {
+    if (this.isTeamSurvivalOver(alive) || this.elapsed > 75) {
       this._conclude();
       return;
     }
@@ -188,6 +190,14 @@ export class SumoKnockoutGame extends BaseGame {
           b.x += nx * overlap * 0.5;
           b.y += ny * overlap * 0.5;
 
+          if (this.isAlly(a, b)) {
+            b.vx += nx * 70;
+            b.vy += ny * 70;
+            a.vx -= nx * 70;
+            a.vy -= ny * 70;
+            continue;
+          }
+
           const massA = a.megaTimer > 0 ? 2.1 : 1.0;
           const massB = b.megaTimer > 0 ? 2.1 : 1.0;
           const forceToB = (260 + (a.dashTimer > 0 ? 310 : 0)) * (massA / massB);
@@ -236,7 +246,7 @@ export class SumoKnockoutGame extends BaseGame {
       }
     }
 
-    if (this.entities.filter((e) => e.alive).length <= 1) {
+    if (this.isTeamSurvivalOver(this.entities.filter((e) => e.alive))) {
       this._conclude();
     }
   }

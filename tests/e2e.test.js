@@ -63,7 +63,7 @@ async function run() {
     const healthRes = await fetch(`http://127.0.0.1:${port}/api/health`);
     const health = await healthRes.json();
     assert.equal(health.ok, true);
-    assert.equal(health.games, 24);
+    assert.equal(health.games, 28);
 
     const htmlRes = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(htmlRes.status, 200);
@@ -109,8 +109,27 @@ async function run() {
     assert.equal(customReact.name, 'Siti');
     assert.equal(customReact.label, 'NGAKAK');
 
-    // 4. Verify ALL 24 mini-games boot, accept input/actions, and produce valid state
+    // 3b. Verify Flexible Team / Co-op Mode config (2v2 perTeam=2, 3 teams, manual switch)
+    p1.send({ type: 'set_team_config', enabled: true, perTeam: 2 });
+    const rsTeam2 = await p1.waitFor((m) => m.type === 'room_state' && m.teamMode === true && m.teamCount === 2);
+    assert.equal(rsTeam2.players.filter((p) => p.team === 0).length, 2);
+    assert.equal(rsTeam2.players.filter((p) => p.team === 1).length, 2);
+
+    p1.send({ type: 'set_team_config', enabled: true, teamCount: 3, balance: true });
+    const rsTeam3 = await p1.waitFor((m) => m.type === 'room_state' && m.teamCount === 3);
+    assert.equal(rsTeam3.teamMode, true);
+
+    p2.send({ type: 'set_player_team', team: 2 });
+    const rsSwitch = await p2.waitFor((m) => m.type === 'room_state' && m.players.find((p) => p.name === 'Budi')?.team === 2);
+    assert.equal(rsSwitch.players.find((p) => p.name === 'Budi').team, 2);
+
+    // Return to FFA for individual loop & score check
+    p1.send({ type: 'set_team_config', enabled: false });
+    await p1.waitFor((m) => m.type === 'room_state' && m.teamMode === false);
+
+    // 4. Verify ALL 28 mini-games boot, accept input/actions, and produce valid state
     const gameIds = [
+      'split-or-steal', 'blame-vote', 'greed-heist', 'betrayal-bridge',
       'dash-blade', 'ricochet-duel', 'memory-rush', 'closest-wins',
       'bomb-pass', 'sumo-knockout', 'turf-paint', 'quick-draw', 'word-bomb', 'chaos-survival',
       'crown-chase', 'coin-rush', 'zombie-tag', 'bumper-soccer', 'meteor-shower', 'snake-party',
@@ -125,6 +144,30 @@ async function run() {
       // Receive live tick state
       const tickState = await p2.waitFor((m) => m.type === 'game_state' && m.state.gameId === gid);
       assert.equal(tickState.state.players.length, 4);
+
+      if (gid === 'split-or-steal') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'choose', choice: 'steal' });
+        assert.equal(r.currentGame.players.find((p) => p.id === w1.playerId).choice, 'steal');
+      }
+
+      if (gid === 'blame-vote') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'vote', targetId: '__SHIELD__' });
+        assert.equal(r.currentGame.players.find((p) => p.id === w1.playerId).vote, '__SHIELD__');
+      }
+
+      if (gid === 'greed-heist') {
+        const r = rooms.rooms.get(code);
+        r.currentGame.countdown = 0;
+        r.currentGame.step(0.05);
+        r.currentGame.handleAction(w1.playerId, { action: 'heist', choice: 'sabotage' });
+        assert.equal(r.currentGame.players.find((p) => p.id === w1.playerId).choice, 'sabotage');
+      }
 
       if (gid === 'closest-wins') {
         const room = rooms.rooms.get(code);
@@ -275,10 +318,25 @@ async function run() {
     assert.equal(meRes.account.name, 'Acilll');
     assert.equal(meRes.account.customEmotes.length, 1);
 
+    // 7. Verify Team Mode live state & Team Standings podium!
+    p1.send({ type: 'set_team_config', enabled: true, teamCount: 2, balance: true });
+    await p1.waitFor((m) => m.type === 'room_state' && m.teamMode === true && m.teamCount === 2);
+    p1.send({ type: 'start_game', gameId: 'betrayal-bridge' });
+    await p1.waitFor((m) => m.type === 'game_start' && m.gameId === 'betrayal-bridge');
+    const teamState = await p3.waitFor((m) => m.type === 'game_state' && m.state.gameId === 'betrayal-bridge' && m.state.teamMode === true);
+    assert.equal(teamState.state.teamMode, true);
+    room.currentGame.finishGame(room.playerList.map((pl, idx) => ({
+      id: pl.id, name: pl.name, color: pl.color, hat: pl.hat, isBot: pl.isBot,
+      score: 100 + idx * 30, detail: 'Team finish',
+    })));
+    const teamOver = await p1.waitFor((m) => m.type === 'game_over' && m.teamMode === true);
+    assert.equal(teamOver.teamStandings.length, 2);
+    assert.ok(teamOver.teamStandings[0].score >= teamOver.teamStandings[1].score);
+
     p1.close();
     p2.close();
     p3.close();
-    console.log('✅ ALL E2E TESTS PASSED (6 mini-games, Party Cup, WebSockets, Bots, Dictionary, Leaderboard)!');
+    console.log('✅ ALL E2E TESTS PASSED (28 mini-games, Team Mode, Perpecahan Pack, Party Cup, Rejoin, Leaderboard)!');
   } finally {
     await app.stop();
     try { fs.unlinkSync(tmpLb); } catch { /* ignore */ }

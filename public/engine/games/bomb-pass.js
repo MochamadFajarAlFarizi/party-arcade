@@ -36,7 +36,7 @@ export class BombPassGame extends BaseGame {
 
   _assignBombs() {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1) {
+    if (this.isTeamSurvivalOver(alive)) {
       this._conclude();
       return;
     }
@@ -115,7 +115,7 @@ export class BombPassGame extends BaseGame {
 
   update(dt) {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1) {
+    if (this.isTeamSurvivalOver(alive)) {
       this._conclude();
       return;
     }
@@ -203,24 +203,28 @@ export class BombPassGame extends BaseGame {
           b.x += nx * overlap;
           b.y += ny * overlap;
 
-          // Check bomb pass
-          for (const bomb of this.bombs) {
-            if (bomb.holderId === a.id && b.immuneTimer <= 0 && !this.bombs.some((x) => x.holderId === b.id)) {
-              bomb.holderId = b.id;
-              a.immuneTimer = 0.55;
-              a.passes += 1;
-              b.vx += nx * 180;
-              b.vy += ny * 180;
-              this.emitEvent('pass', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, to: b.name });
-              break;
-            } else if (bomb.holderId === b.id && a.immuneTimer <= 0 && !this.bombs.some((x) => x.holderId === a.id)) {
-              bomb.holderId = a.id;
-              b.immuneTimer = 0.55;
-              b.passes += 1;
-              a.vx -= nx * 180;
-              a.vy -= ny * 180;
-              this.emitEvent('pass', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, to: a.name });
-              break;
+          // Check bomb pass (avoid friendly-fire passing if enemies are still alive!)
+          const sameTeam = this.isAlly(a, b);
+          const enemiesExist = sameTeam && alive.some((o) => !this.isAlly(a, o));
+          if (!enemiesExist) {
+            for (const bomb of this.bombs) {
+              if (bomb.holderId === a.id && b.immuneTimer <= 0 && !this.bombs.some((x) => x.holderId === b.id)) {
+                bomb.holderId = b.id;
+                a.immuneTimer = 0.55;
+                a.passes += 1;
+                b.vx += nx * 180;
+                b.vy += ny * 180;
+                this.emitEvent('pass', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, to: b.name });
+                break;
+              } else if (bomb.holderId === b.id && a.immuneTimer <= 0 && !this.bombs.some((x) => x.holderId === a.id)) {
+                bomb.holderId = a.id;
+                b.immuneTimer = 0.55;
+                b.passes += 1;
+                a.vx -= nx * 180;
+                a.vy -= ny * 180;
+                this.emitEvent('pass', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, to: a.name });
+                break;
+              }
             }
           }
         }

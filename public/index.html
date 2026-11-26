@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#38BDF8" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>PARTY POP! — 24 Mini-Game Mabar</title>
+  <title>PARTY POP! — 28 Mini-Game Mabar</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/favicon.svg" />
   <link rel="manifest" href="/manifest.json" />
@@ -50,8 +50,8 @@
   <main id="screenHome" class="screen active">
     <section class="home-hero">
       <div class="hero-pill">✨ 2–12 PEMAIN • WEB & HP • MAIN BARENG DISCORDAN</div>
-      <h1 class="hero-title">Satu Web, <span>24 Game Rusuh!</span></h1>
-      <p class="hero-sub">Dash Blade • Ricochet • Bomb Pass • Sumo • Sambung Kata • Trivia 105+ Soal • Tebak Angka • +17 Lainnya!</p>
+      <h1 class="hero-title">Satu Web, <span>28 Game Rusuh!</span></h1>
+      <p class="hero-sub">Mode Co-op/Tim Bebas • Game Perpecahan (Khianati, Fitnah, Rampok, Jembatan Lava) • Trivia 105+ Soal • +20 Lainnya!</p>
     </section>
 
     <section class="home-grid">
@@ -98,7 +98,7 @@
         </div>
 
         <div class="game-showcase">
-          <h3>🎮 24 Mini-Game Siap Main</h3>
+          <h3>🎮 28 Mini-Game Siap Main</h3>
           <div class="mini-badges" id="homeGameBadges"></div>
         </div>
       </div>
@@ -128,6 +128,27 @@
             <button class="btn-mini" id="btnRemoveBot">- Bot</button>
           </div>
         </div>
+
+        <!-- Mode Solo FFA vs Co-op / Team Setup -->
+        <div class="team-panel" id="teamPanel">
+          <div class="team-mode-row">
+            <button type="button" class="team-mode-btn active" id="btnModeFFA">👤 FFA Solo</button>
+            <button type="button" class="team-mode-btn" id="btnModeTeam">🤝 Mode Tim / Co-op</button>
+          </div>
+          <div id="teamConfigRow" class="team-config-row hidden">
+            <div class="team-preset-row" id="teamHostControls">
+              <button type="button" class="btn-mini" data-team-count="2">2 Tim</button>
+              <button type="button" class="btn-mini" data-team-count="3">3 Tim</button>
+              <button type="button" class="btn-mini" data-team-count="4">4 Tim</button>
+              <button type="button" class="btn-mini btn-blue-mini" data-per-team="2" title="Bagi jadi 2 orang per tim">👥 2/Tim</button>
+              <button type="button" class="btn-mini btn-blue-mini" data-per-team="3" title="Bagi jadi 3 orang per tim">👥 3/Tim</button>
+              <button type="button" class="btn-mini btn-yellow-mini" id="btnShuffleTeams">🎲 Acak</button>
+            </div>
+            <div id="lobbyTeamScores" class="team-score-strip"></div>
+            <div class="team-tip">💡 Klik badge warna di nama pemain untuk pindah tim!</div>
+          </div>
+        </div>
+
         <div id="lobbyPlayersList" class="players-list"></div>
 
         <!-- Reaction Bar (Standard + Custom Image Emotes) -->
@@ -167,11 +188,12 @@
         </div>
 
         <div class="card-head" style="margin-top: 10px;">
-          <h2>🎮 Pilih Game (24 Tersedia)</h2>
+          <h2>🎮 Pilih Game (28 Tersedia)</h2>
           <button class="btn-mini btn-purple-mini" id="btnRandomGame">🎲 Spin Acak!</button>
         </div>
         <div id="gameCategoryFilters" class="cat-filters">
-          <button type="button" class="lb-tab active" data-cat="ALL">🌟 Semua (24)</button>
+          <button type="button" class="lb-tab active" data-cat="ALL">🌟 Semua (28)</button>
+          <button type="button" class="lb-tab" data-cat="Perpecahan">😈 Perpecahan</button>
           <button type="button" class="lb-tab" data-cat="Action">🔥 Action</button>
           <button type="button" class="lb-tab" data-cat="Survival">🏃 Survival</button>
           <button type="button" class="lb-tab" data-cat="Sport">⚽ Sport</button>
@@ -190,6 +212,7 @@
     <div class="game-hud">
       <div class="hud-left">
         <span class="hud-chip hud-game-name" id="hudGameName">🎮 Game</span>
+        <span class="hud-chip" id="hudTeamBadge" hidden>🔴 Tim Merah</span>
         <span class="hud-chip hud-cup" id="hudCupBadge" hidden>🏆 Ronde 1/3</span>
       </div>
       <div class="hud-center" id="hudCenterInfo">Siap-siap...</div>

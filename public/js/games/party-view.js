@@ -2,6 +2,8 @@ import { sfx } from '../audio.js';
 
 const CHOICE_COLORS = ['btn-pink', 'btn-blue', 'btn-yellow', 'btn-green'];
 const LETTERS = ['A', 'B', 'C', 'D'];
+const TEAM_ICONS = ['🔴', '🔵', '🟢', '🟡'];
+const TEAM_COLORS = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308'];
 
 /**
  * Interactive Party UI View for Trivia Kilat, Reflex Duel, Math Panic, and Tebak Angka Terdekat.
@@ -37,7 +39,8 @@ export class PartyView {
     for (const p of s.players || []) {
       const chip = document.createElement('div');
       chip.className = 'party-player-chip';
-      chip.style.borderColor = p.color;
+      chip.style.borderColor = s.teamMode ? (TEAM_COLORS[p.team ?? 0] || p.color) : p.color;
+      const teamPrefix = s.teamMode ? `${TEAM_ICONS[p.team ?? 0] || ''} ` : '';
       let status = '';
       if (s.uiType === 'quiz') {
         if (p.lastCorrect === true) status = ' ✅';
@@ -52,14 +55,27 @@ export class PartyView {
         } else if (p.answered) {
           status = ' 🔒';
         }
+      } else if (s.uiType === 'split-steal') {
+        if (p.choice === 'split') status = ` 🤝 (${p.lastDelta >= 0 ? '+' : ''}${p.lastDelta})`;
+        else if (p.choice === 'steal') status = ` 🔪 (${p.lastDelta >= 0 ? '+' : ''}${p.lastDelta})`;
+        else if (p.answered) status = ' 🔒';
+      } else if (s.uiType === 'blame-vote') {
+        if (s.subPhase === 'reveal') status = ` (${p.lastDelta >= 0 ? '+' : ''}${p.lastDelta})`;
+        else if (p.answered) status = ' 🔒';
+      } else if (s.uiType === 'greed-heist') {
+        if (!p.inside) status = ' 🏃 AMAN';
+        else status = ` 💰+${p.bag}${p.answered ? ' 🔒' : ''}`;
       }
-      chip.textContent = `${p.name}: ${p.score}${status}`;
+      chip.textContent = `${teamPrefix}${p.name}: ${p.score}${status}`;
       this.playersBar.appendChild(chip);
     }
 
     if (s.uiType === 'quiz') this._renderQuiz(s);
     else if (s.uiType === 'reflex') this._renderReflex(s);
     else if (s.uiType === 'estimate') this._renderEstimate(s);
+    else if (s.uiType === 'split-steal') this._renderSplitSteal(s);
+    else if (s.uiType === 'blame-vote') this._renderBlameVote(s);
+    else if (s.uiType === 'greed-heist') this._renderGreedHeist(s);
   }
 
   _renderQuiz(s) {
@@ -222,6 +238,220 @@ export class PartyView {
       sfx.play('pop');
       this.sendAction({ action: 'estimate', value: val });
       this.lastRoundKey = '';
+    });
+  }
+
+  // ===== 25. BAGI ATAU KHIANATI =====
+  _renderSplitSteal(s) {
+    const me = (s.players || []).find((p) => p.id === this.myId);
+    const key = `ss_${s.phase}_${s.round}_${s.subPhase}_${!!me?.answered}_${me?.myChoice}`;
+    const timerEl = this.container.querySelector('.quiz-timer-val');
+    if (key === this.lastRoundKey && timerEl) {
+      timerEl.textContent = `⏱ ${Math.ceil(s.timer)}s`;
+      return;
+    }
+    this.lastRoundKey = key;
+
+    const locked = !!(me?.answered || s.subPhase !== 'decide' || s.phase !== 'playing');
+    const mult = s.isJackpot ? 2 : 1;
+    const partnersHtml = (s.myPartners || []).length
+      ? s.myPartners.map((pt) => `<span class="partner-badge" style="border-color:${pt.color}">${s.teamMode ? (TEAM_ICONS[pt.team ?? 0] + ' ') : ''}${escapeHtml(pt.name)}</span>`).join(' & ')
+      : '<span class="partner-badge">Solo Ronde Ini</span>';
+
+    let bodyHtml = '';
+    if (s.subPhase === 'reveal') {
+      const cards = (s.results || []).map((res) => {
+        const pills = res.members.map((m) => `
+          <span class="reveal-member ${m.choice === 'steal' ? 'is-steal' : 'is-split'}">
+            ${escapeHtml(m.name)}: ${m.choice === 'steal' ? '🔪 KHIANAT' : '🤝 BAGI'} (${m.delta >= 0 ? '+' : ''}${m.delta})
+          </span>
+        `).join('');
+        return `
+          <div class="betray-result-card tone-${res.tone}">
+            <div class="betray-headline">${escapeHtml(res.headline)}</div>
+            <div class="betray-members">${pills}</div>
+          </div>
+        `;
+      }).join('');
+      bodyHtml = `<div class="betray-results-list">${cards}</div>`;
+    } else if (me?.answered) {
+      const txt = me.myChoice === 'steal' ? '🔪 Kamu pilih KHIANATI!' : '🤝 Kamu pilih BAGI RATA!';
+      bodyHtml = `<div class="hud-chip" style="background:#FEF08A;padding:14px 20px;font-size:18px">🔒 ${txt} Menunggu pemain lain...</div>`;
+    } else {
+      bodyHtml = `
+        <div class="partner-callout">Pasanganmu Ronde Ini: ${partnersHtml}</div>
+        <p class="muted" style="margin:0">Negosiasi di Discord! Sama-sama BAGI <b>+${120 * mult}</b> • Kamu KHIANAT & dia BAGI <b>+${260 * mult}</b> • Sama-sama KHIANAT <b>-${60 * mult}</b>!</p>
+        <div class="perpecahan-actions">
+          <button type="button" class="btn-candy btn-green btn-lg betray-choice-btn" data-ss="split" ${locked ? 'disabled' : ''}>
+            🤝 BAGI RATA<br><small>+${120 * mult} Damai</small>
+          </button>
+          <button type="button" class="btn-candy btn-pink btn-lg betray-choice-btn" data-ss="steal" ${locked ? 'disabled' : ''}>
+            🔪 KHIANATI!<br><small>+${260 * mult} / -${60 * mult}</small>
+          </button>
+        </div>
+      `;
+    }
+
+    this.container.innerHTML = `
+      <div class="quiz-box cartoon-card">
+        <div class="quiz-meta">
+          <span class="hud-chip">💸 Ronde ${s.round}/${s.totalRounds}${s.isJackpot ? ' 🔥 2x JACKPOT!' : ''}</span>
+          <span class="hud-chip hud-timer quiz-timer-val">⏱ ${Math.ceil(s.timer)}s</span>
+        </div>
+        <h2 class="quiz-prompt">${s.subPhase === 'reveal' ? '😈 HASIL PENGKHIANATAN!' : 'Percaya Teman atau Tikam dari Belakang?'}</h2>
+        ${bodyHtml}
+      </div>
+    `;
+
+    this.container.querySelectorAll('[data-ss]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cur = this.latestState;
+        if (!cur || cur.phase !== 'playing' || cur.subPhase !== 'decide') return;
+        sfx.play('pop');
+        this.sendAction({ action: 'choose', choice: btn.dataset.ss });
+        this.lastRoundKey = '';
+      });
+    });
+  }
+
+  // ===== 26. FITNAH & TUMBAL =====
+  _renderBlameVote(s) {
+    const me = (s.players || []).find((p) => p.id === this.myId);
+    const key = `bv_${s.phase}_${s.round}_${s.subPhase}_${!!me?.answered}_${s.myVote}`;
+    const timerEl = this.container.querySelector('.quiz-timer-val');
+    if (key === this.lastRoundKey && timerEl) {
+      timerEl.textContent = `⏱ ${Math.ceil(s.timer)}s`;
+      return;
+    }
+    this.lastRoundKey = key;
+
+    const locked = !!(me?.answered || s.subPhase !== 'vote' || s.phase !== 'playing');
+    let bodyHtml = '';
+
+    if (s.subPhase === 'reveal') {
+      const headHtml = (s.headlines || []).map((h) => `
+        <div class="betray-result-card tone-${h.tone === 'reflect' ? 'peace' : h.tone === 'boom' ? 'betray' : 'safe'}">
+          <div class="betray-headline">${escapeHtml(h.text)}</div>
+        </div>
+      `).join('');
+      const detailHtml = (s.voteDetails || []).map((v) => `
+        <span class="reveal-member ${v.action === 'shield' ? 'is-split' : 'is-steal'}">
+          ${escapeHtml(v.fromName)} ${v.action === 'shield' ? '🛡️' : '👉'} ${escapeHtml(v.targetName)} (${v.delta >= 0 ? '+' : ''}${v.delta})
+        </span>
+      `).join('');
+      bodyHtml = `
+        <div class="betray-results-list">${headHtml}</div>
+        <div class="betray-members" style="justify-content:center">${detailHtml}</div>
+      `;
+    } else if (me?.answered) {
+      bodyHtml = `<div class="hud-chip" style="background:#C4B5FD;padding:14px 20px;font-size:18px">🔒 Pilihan rahasiamu terkunci! Menunggu pemain lain...</div>`;
+    } else {
+      const targets = (s.players || []).filter((p) => p.id !== this.myId);
+      const targetBtns = targets.map((t) => `
+        <button type="button" class="btn-candy btn-pink blame-target-btn" data-vote="${t.id}" ${locked ? 'disabled' : ''}>
+          🔪 ${s.teamMode ? (TEAM_ICONS[t.team ?? 0] + ' ') : ''}${escapeHtml(t.name)} <small>(${t.score} pts)</small>
+        </button>
+      `).join('');
+      const shieldDisabled = locked || (s.myShieldsLeft || 0) <= 0;
+      bodyHtml = `
+        <p class="muted" style="margin:0">${escapeHtml(s.theme?.sub || '')}</p>
+        <div class="blame-grid">${targetBtns}</div>
+        <button type="button" class="btn-candy btn-blue" data-vote="__SHIELD__" ${shieldDisabled ? 'disabled' : ''}>
+          🛡️ PASANG PERISAI PANTUL (Sisa ${s.myShieldsLeft || 0}x) — Pantulkan Semua Serangan!
+        </button>
+      `;
+    }
+
+    this.container.innerHTML = `
+      <div class="quiz-box cartoon-card">
+        <div class="quiz-meta">
+          <span class="hud-chip">🔪 Ronde ${s.round}/${s.totalRounds}${s.theme?.mult > 1 ? ' 🔥 2x!' : ''}</span>
+          <span class="hud-chip hud-timer quiz-timer-val">⏱ ${Math.ceil(s.timer)}s</span>
+        </div>
+        <h2 class="quiz-prompt">${escapeHtml(s.theme?.title || 'FITNAH & TUMBAL')}</h2>
+        ${bodyHtml}
+      </div>
+    `;
+
+    this.container.querySelectorAll('[data-vote]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cur = this.latestState;
+        if (!cur || cur.phase !== 'playing' || cur.subPhase !== 'vote') return;
+        sfx.play('pop');
+        this.sendAction({ action: 'vote', targetId: btn.dataset.vote });
+        this.lastRoundKey = '';
+      });
+    });
+  }
+
+  // ===== 27. RAMPOK BRANKAS =====
+  _renderGreedHeist(s) {
+    const me = (s.players || []).find((p) => p.id === this.myId);
+    const key = `gh_${s.phase}_${s.round}_${s.step}_${s.subPhase}_${s.myInside}_${!!me?.answered}_${s.myChoice}`;
+    const timerEl = this.container.querySelector('.quiz-timer-val');
+    if (key === this.lastRoundKey && timerEl) {
+      timerEl.textContent = `⏱ ${Math.ceil(s.timer)}s`;
+      return;
+    }
+    this.lastRoundKey = key;
+
+    const locked = !!(me?.answered || !s.myInside || s.subPhase !== 'decide' || s.phase !== 'playing');
+    const riskColor = s.baseRisk >= 60 ? '#EF4444' : s.baseRisk >= 35 ? '#F97316' : '#22C55E';
+    let bodyHtml = '';
+
+    if (s.subPhase === 'reveal' && s.summary) {
+      const banner = s.summary.raided
+        ? `<div class="betray-result-card tone-betray"><div class="betray-headline">🚔 POLISI GREBEK BRANKAS! (Risiko ${s.summary.effectiveRisk}%)</div></div>`
+        : `<div class="betray-result-card tone-peace"><div class="betray-headline">💎 BRANKAS AMAN! (Risiko ${s.summary.effectiveRisk}%)</div></div>`;
+      const lines = (s.summary.lines || []).map((ln) => `
+        <div class="podium-row" style="padding:6px 12px;font-size:13.5px">${escapeHtml(ln.text)}</div>
+      `).join('');
+      bodyHtml = `${banner}<div class="betray-results-list">${lines}</div>`;
+    } else if (!s.myInside) {
+      bodyHtml = `<div class="hud-chip" style="background:#86EFAC;padding:14px 20px;font-size:17px">😎 Kamu sudah kabur aman! Menonton temanmu yang masih serakah...</div>`;
+    } else if (me?.answered) {
+      bodyHtml = `<div class="hud-chip" style="background:#FEF08A;padding:14px 20px;font-size:17px">🔒 Keputusan terkunci! Menunggu perampok lain...</div>`;
+    } else {
+      const sabDisabled = locked || (s.mySabotageLeft || 0) <= 0;
+      bodyHtml = `
+        <div class="heist-stats-bar">
+          <div class="heist-stat">💰 Kantongmu: <b>${s.myBag} pts</b></div>
+          <div class="heist-stat">💎 Tambahan Lapis Ini: <b>+${s.nextLoot}</b></div>
+          <div class="heist-stat" style="background:${riskColor};color:#fff">🚨 Risiko Polisi: <b>${s.baseRisk}%</b></div>
+        </div>
+        <div class="perpecahan-actions">
+          <button type="button" class="btn-candy btn-yellow betray-choice-btn" data-heist="stay" ${locked ? 'disabled' : ''}>
+            💎 LANJUT RAMPOK<br><small>Kejar +${s.nextLoot} pts</small>
+          </button>
+          <button type="button" class="btn-candy btn-green betray-choice-btn" data-heist="escape" ${locked ? 'disabled' : ''}>
+            🏃 KABUR AMAN<br><small>Simpan ${s.myBag} pts</small>
+          </button>
+          <button type="button" class="btn-candy btn-pink betray-choice-btn" data-heist="sabotage" ${sabDisabled ? 'disabled' : ''}>
+            😈 TEKAN ALARM! (${s.mySabotageLeft}x)<br><small>Kabur + Risiko +35%!</small>
+          </button>
+        </div>
+      `;
+    }
+
+    this.container.innerHTML = `
+      <div class="quiz-box cartoon-card">
+        <div class="quiz-meta">
+          <span class="hud-chip">🏦 Brankas ${s.round}/${s.totalRounds} • Lapis ${s.step}/${s.maxSteps}</span>
+          <span class="hud-chip hud-timer quiz-timer-val">⏱ ${Math.ceil(s.timer)}s</span>
+        </div>
+        <h2 class="quiz-prompt">${s.subPhase === 'reveal' ? '🚨 HASIL PENJARAHAN!' : 'Serakah Lanjut, Kabur, atau Tekan Alarm?'}</h2>
+        ${bodyHtml}
+      </div>
+    `;
+
+    this.container.querySelectorAll('[data-heist]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cur = this.latestState;
+        if (!cur || cur.phase !== 'playing' || cur.subPhase !== 'decide') return;
+        sfx.play('pop');
+        this.sendAction({ action: 'heist', choice: btn.dataset.heist });
+        this.lastRoundKey = '';
+      });
     });
   }
 }

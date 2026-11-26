@@ -147,7 +147,7 @@ export class DodgeballGame extends BaseGame {
 
   update(dt) {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1 || this.elapsed >= 50) {
+    if (this.isTeamSurvivalOver(alive) || this.elapsed >= 50) {
       const total = this.entities.length;
       return this.finishGame(this.entities.map((e) => {
         const rank = e.alive ? total : this.eliminationOrder.indexOf(e.id) + 1;
@@ -162,7 +162,7 @@ export class DodgeballGame extends BaseGame {
     for (const p of alive) {
       if (p.isBot) {
         if (p.holdingBall) {
-          const target = alive.filter((o) => o.id !== p.id).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
+          const target = alive.filter((o) => o.id !== p.id && !this.isAlly(p, o)).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
           if (target) {
             const d = dist(p.x, p.y, target.x, target.y) || 1;
             p.inputX = (target.x - p.x) / d; p.inputY = (target.y - p.y) / d;
@@ -224,9 +224,13 @@ export class DodgeballGame extends BaseGame {
         if (!p.alive) continue;
         if (dist(p.x, p.y, b.x, b.y) < PLAYER_RADIUS + 17) {
           if (b.live && b.thrownBy !== p.id) {
+            const thrower = this.entities.find((e) => e.id === b.thrownBy);
+            if (thrower && this.isAlly(thrower, p)) {
+              b.vx *= -0.5; b.vy *= -0.5;
+              continue;
+            }
             p.alive = false;
             this.eliminationOrder.push(p.id);
-            const thrower = this.entities.find((e) => e.id === b.thrownBy);
             if (thrower) thrower.hits += 1;
             if (p.holdingBall) { p.holdingBall.ownerId = null; p.holdingBall = null; }
             b.vx *= -0.4; b.vy *= -0.4; b.live = false;

@@ -21,7 +21,7 @@ export class DashBladeGame extends BaseGame {
 
   update(dt) {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1 || this.elapsed >= 55) {
+    if (this.isTeamSurvivalOver(alive) || this.elapsed >= 55) {
       const total = this.entities.length;
       return this.finishGame(this.entities.map((e) => {
         const rank = e.alive ? total : this.eliminationOrder.indexOf(e.id) + 1;
@@ -50,7 +50,7 @@ export class DashBladeGame extends BaseGame {
       p.powerTimer = Math.max(0, p.powerTimer - dt);
 
       if (p.isBot) {
-        const rival = alive.filter((o) => o.id !== p.id).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
+        const rival = alive.filter((o) => o.id !== p.id && !this.isAlly(p, o)).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
         const orb = p.hp < 3 ? this.orbs.find((o) => o.type === 'heal') : this.orbs[0];
         const target = (orb && dist(p.x, p.y, orb.x, orb.y) < 220) ? orb : rival;
         if (target) {
@@ -103,7 +103,7 @@ export class DashBladeGame extends BaseGame {
       for (let j = i + 1; j < alive.length; j++) {
         const a = alive[i];
         const b = alive[j];
-        if (!a.alive || !b.alive) continue;
+        if (!a.alive || !b.alive || this.isAlly(a, b)) continue;
         const d = dist(a.x, a.y, b.x, b.y);
         if (d < PLAYER_RADIUS * 2.25 && d > 0.1) {
           const nx = (b.x - a.x) / d;
@@ -184,7 +184,7 @@ export class RicochetDuelGame extends BaseGame {
 
   update(dt) {
     const alive = this.entities.filter((e) => e.alive);
-    if (alive.length <= 1 || this.elapsed >= 55) {
+    if (this.isTeamSurvivalOver(alive) || this.elapsed >= 55) {
       const total = this.entities.length;
       return this.finishGame(this.entities.map((e) => {
         const rank = e.alive ? total : this.eliminationOrder.indexOf(e.id) + 1;
@@ -201,7 +201,7 @@ export class RicochetDuelGame extends BaseGame {
       p.invuln = Math.max(0, p.invuln - dt);
 
       if (p.isBot) {
-        const target = alive.filter((o) => o.id !== p.id).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
+        const target = alive.filter((o) => o.id !== p.id && !this.isAlly(p, o)).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y))[0];
         if (target) {
           const d = dist(p.x, p.y, target.x, target.y) || 1;
           const strafe = Math.sin(this.elapsed * 2 + p.aiSeed);
@@ -283,9 +283,11 @@ export class RicochetDuelGame extends BaseGame {
 
       // Hit check
       let hitDone = false;
+      const shooterObj = this.entities.find((e) => e.id === b.ownerId);
       for (const p of alive) {
         if (!p.alive || p.invuln > 0) continue;
         if (b.ownerId === p.id && b.bounces === 2) continue; // own shot can't self-hit immediately
+        if (shooterObj && this.isAlly(shooterObj, p)) continue; // no friendly fire in Team Mode!
         if (dist(b.x, b.y, p.x, p.y) < PLAYER_RADIUS + 10) {
           p.hp -= 1;
           p.invuln = 0.5;
@@ -445,7 +447,7 @@ export class MemoryRushGame extends BaseGame {
     for (let i = 0; i < alive.length; i++) {
       for (let j = i + 1; j < alive.length; j++) {
         const a = alive[i]; const b = alive[j];
-        if (!a.alive || !b.alive) continue;
+        if (!a.alive || !b.alive || this.isAlly(a, b)) continue;
         const d = dist(a.x, a.y, b.x, b.y);
         if (d < PLAYER_RADIUS * 2 && d > 0.1) {
           const nx = (b.x - a.x) / d; const ny = (b.y - a.y) / d;

@@ -11,8 +11,20 @@ import {
 import { SharkEscapeGame, DodgeballGame, TurboRaceGame } from './games/action-pack2.js';
 import { TriviaRushGame, ReflexDuelGame, MathPanicGame, ClosestWinsGame } from './games/party-quiz-pack.js';
 import { DashBladeGame, RicochetDuelGame, MemoryRushGame } from './games/competitive-pack.js';
+import { SplitOrStealGame, BlameVoteGame, GreedHeistGame, BetrayalBridgeGame } from './games/perpecahan-pack.js';
+
+export const TEAM_DEFS = [
+  { id: 0, key: 'red', name: 'Tim Merah', short: 'MERAH', icon: '🔴', color: '#EF4444', bg: '#FEE2E2' },
+  { id: 1, key: 'blue', name: 'Tim Biru', short: 'BIRU', icon: '🔵', color: '#3B82F6', bg: '#DBEAFE' },
+  { id: 2, key: 'green', name: 'Tim Hijau', short: 'HIJAU', icon: '🟢', color: '#22C55E', bg: '#DCFCE7' },
+  { id: 3, key: 'yellow', name: 'Tim Kuning', short: 'KUNING', icon: '🟡', color: '#EAB308', bg: '#FEF9C3' },
+];
 
 export const GAME_CATALOG = [
+  { id: 'split-or-steal', name: 'Bagi / Khianati', icon: '💸', desc: 'Janji damai atau tikam teman? Serakah berdua hancur!', color: '#E11D48', tag: 'Perpecahan' },
+  { id: 'blame-vote', name: 'Fitnah & Tumbal', icon: '🔪', desc: 'Tunjuk tumbal buat rampas poin — awas 🛡️ Perisai Pantul!', color: '#7C3AED', tag: 'Perpecahan' },
+  { id: 'greed-heist', name: 'Rampok Brankas', icon: '🏦', desc: 'Lanjut jarah, kabur aman, atau 😈 TEKAN ALARM buat jebak teman!', color: '#D97706', tag: 'Perpecahan' },
+  { id: 'betrayal-bridge', name: 'Jembatan Lava', icon: '🌋', desc: 'Rebutan ubin aman & dorong teman jatuh ke lava!', color: '#DC2626', tag: 'Perpecahan' },
   { id: 'dash-blade', name: 'Dash Blade PvP', icon: '⚔️', desc: 'Duel pedang 3 HP! Dash tebas lawan — bentrok dash jadi CLASH!', color: '#EF4444', tag: 'Action' },
   { id: 'ricochet-duel', name: 'Ricochet Arena', icon: '🔫', desc: 'Tembak bola energi memantul dari dinding & pilar cover!', color: '#6366F1', tag: 'Action' },
   { id: 'bomb-pass', name: 'Bomb Pass', icon: '💣', desc: 'Oper bom sebelum meledak! Dash & hindari!', color: '#FF5E7E', tag: 'Action' },
@@ -40,6 +52,10 @@ export const GAME_CATALOG = [
 ];
 
 const GAME_CONSTRUCTORS = {
+  'split-or-steal': SplitOrStealGame,
+  'blame-vote': BlameVoteGame,
+  'greed-heist': GreedHeistGame,
+  'betrayal-bridge': BetrayalBridgeGame,
   'dash-blade': DashBladeGame,
   'ricochet-duel': RicochetDuelGame,
   'memory-rush': MemoryRushGame,
@@ -89,7 +105,94 @@ export class Room {
     this.partyCup = null; // { queue: string[], index: number, total: number }
     this.lastStandings = [];
     this.botCounter = 0;
-    this.savedScores = new Map(); // nameLower -> { sessionScore, wins, oldId } — preserves scores on disconnect/rejoin!
+    this.savedScores = new Map(); // nameLower -> { sessionScore, wins, oldId, team } — preserves scores on disconnect/rejoin!
+    this.teamMode = false; // false = FFA Solo, true = Co-op / Team Mode
+    this.teamCount = 2; // 2, 3, or 4 teams
+    this.teamScores = [0, 0, 0, 0];
+  }
+
+  isSameTeam(a, b) {
+    if (!this.teamMode || !a || !b || a.id === b.id) return false;
+    const ta = a.team !== undefined ? a.team : this.players.get(a.id)?.team;
+    const tb = b.team !== undefined ? b.team : this.players.get(b.id)?.team;
+    return ta !== undefined && ta === tb;
+  }
+
+  _pickBalancedTeam() {
+    const counts = Array.from({ length: this.teamCount }, () => 0);
+    for (const p of this.players.values()) {
+      const t = (p.team ?? 0) % this.teamCount;
+      counts[t] += 1;
+    }
+    let best = 0;
+    for (let i = 1; i < counts.length; i++) {
+      if (counts[i] < counts[best]) best = i;
+    }
+    return best;
+  }
+
+  _normalizeTeams(shuffle = false) {
+    const list = this.playerList;
+    if (shuffle) {
+      const shuffled = [...list].sort(() => Math.random() - 0.5);
+      shuffled.forEach((p, idx) => { p.team = idx % this.teamCount; });
+    } else {
+      for (const p of list) {
+        if (p.team === undefined || p.team >= this.teamCount) {
+          p.team = this._pickBalancedTeam();
+        }
+      }
+    }
+  }
+
+  setTeamConfig(requesterId, cfg = {}) {
+    if (requesterId !== this.hostId || this.state !== 'lobby') return;
+    if (typeof cfg.enabled === 'boolean') {
+      this.teamMode = cfg.enabled;
+    }
+    if (typeof cfg.perTeam === 'number' && cfg.perTeam >= 1) {
+      this.teamMode = true;
+      const n = Math.max(2, this.players.size);
+      this.teamCount = Math.max(2, Math.min(4, Math.ceil(n / cfg.perTeam)));
+      this._normalizeTeams(true);
+    } else if (typeof cfg.teamCount === 'number') {
+      this.teamCount = Math.max(2, Math.min(4, Math.round(cfg.teamCount)));
+      this._normalizeTeams(!!cfg.shuffle);
+    } else if (cfg.shuffle) {
+      this._normalizeTeams(true);
+    } else if (this.teamMode) {
+      // Ensure at least 2 teams have players if everyone was stuck on team 0
+      const used = new Set(this.playerList.map((p) => p.team ?? 0));
+      if (used.size < 2 && this.players.size >= 2) {
+        this._normalizeTeams(true);
+      } else {
+        this._normalizeTeams(false);
+      }
+    }
+    if (cfg.balance) {
+      const list = this.playerList;
+      list.forEach((p, idx) => { p.team = idx % this.teamCount; });
+    }
+    this.broadcast({
+      type: 'chat', system: true, tone: 'info',
+      text: this.teamMode
+        ? `🤝 Mode TEAM aktif (${this.teamCount} Tim)! Klik warna tim pemain untuk atur susunan.`
+        : '👤 Mode berubah ke FFA (Solo / Semua Lawan Semua)!',
+    });
+    this.broadcastLobby();
+  }
+
+  setPlayerTeam(requesterId, targetId, teamIdx) {
+    if (this.state !== 'lobby') return;
+    const tid = targetId || requesterId;
+    if (requesterId !== this.hostId && tid !== requesterId) return;
+    const p = this.players.get(tid);
+    if (!p) return;
+    const nextTeam = Number.isInteger(teamIdx)
+      ? ((teamIdx % this.teamCount) + this.teamCount) % this.teamCount
+      : ((p.team ?? 0) + 1) % this.teamCount;
+    p.team = nextTeam;
+    this.broadcastLobby();
   }
 
   get playerList() {
@@ -163,12 +266,16 @@ export class Room {
     const usedColors = new Set(this.playerList.map((p) => p.color));
     const color = COLORS.includes(profile.color) ? profile.color : (COLORS.find((c) => !usedColors.has(c)) || COLORS[0]);
     const hat = HATS.includes(profile.hat) ? profile.hat : 'headset';
+    const assignedTeam = saved && saved.team !== undefined
+      ? (saved.team % this.teamCount)
+      : this._pickBalancedTeam();
     const player = {
       id: ws.id,
       ws,
       name: cleanName,
       color,
       hat,
+      team: assignedTeam,
       isBot: false,
       sessionScore: saved ? saved.sessionScore : 0,
       wins: saved ? saved.wins : 0,
@@ -216,6 +323,7 @@ export class Room {
       this.savedScores.set(p.name.toLowerCase(), {
         sessionScore: p.sessionScore,
         wins: p.wins,
+        team: p.team ?? 0,
         oldId: p.id,
         leftAt: Date.now(),
       });
@@ -263,6 +371,7 @@ export class Room {
       name,
       color,
       hat,
+      team: this._pickBalancedTeam(),
       isBot: true,
       sessionScore: 0,
       wins: 0,
@@ -295,6 +404,7 @@ export class Room {
     const shuffled = [...GAME_CATALOG.map((g) => g.id)].sort(() => Math.random() - 0.5);
     this.partyCup = { queue: shuffled.slice(0, count), index: 0, total: count };
     this.savedScores.clear();
+    this.teamScores = [0, 0, 0, 0];
     for (const p of this.players.values()) p.sessionScore = 0;
     this._launchGame(this.partyCup.queue[0]);
   }
@@ -337,10 +447,26 @@ export class Room {
     });
 
     this.lastTickAt = Date.now();
-    const turnBased = ['quick-draw', 'word-bomb', 'trivia-rush', 'math-panic', 'closest-wins'].includes(gameId);
+    const turnBased = [
+      'quick-draw', 'word-bomb', 'trivia-rush', 'math-panic', 'closest-wins',
+      'split-or-steal', 'blame-vote', 'greed-heist',
+    ].includes(gameId);
     const defaultTick = this.manager.tickMs || 33;
     const intervalMs = turnBased ? Math.max(defaultTick, 120) : defaultTick;
     this.tickHandle = setInterval(() => this._tick(), intervalMs);
+  }
+
+  _enrichTeamState(state) {
+    if (!state || !this.teamMode) return state;
+    state.teamMode = true;
+    state.teamCount = this.teamCount;
+    if (Array.isArray(state.players)) {
+      for (const sp of state.players) {
+        const rp = this.players.get(sp.id);
+        if (rp) sp.team = rp.team ?? 0;
+      }
+    }
+    return state;
   }
 
   _tick() {
@@ -359,7 +485,7 @@ export class Room {
         if (p.ws) {
           p.ws.sendJSON({
             type: 'game_state',
-            state: this.currentGame.getStateFor(p.id),
+            state: this._enrichTeamState(this.currentGame.getStateFor(p.id)),
             events,
           });
         }
@@ -367,7 +493,7 @@ export class Room {
     } else {
       this.broadcast({
         type: 'game_state',
-        state: this.currentGame.getState(),
+        state: this._enrichTeamState(this.currentGame.getState()),
         events,
       });
     }
@@ -378,25 +504,93 @@ export class Room {
     this.state = 'podium';
     this.lastStandings = standings;
 
+    // Attach team info to individual standings
+    for (const s of standings) {
+      const p = this.players.get(s.id);
+      if (p) s.team = p.team ?? 0;
+    }
+
+    // Compute Team Standings if Team Mode is ON!
+    let teamStandings = null;
+    let teamSessionStandings = null;
+    const winTeamMemberIds = new Set();
+    if (this.teamMode) {
+      const buckets = new Map();
+      for (const s of standings) {
+        const tid = (s.team ?? 0) % this.teamCount;
+        if (!buckets.has(tid)) buckets.set(tid, []);
+        buckets.get(tid).push(s);
+      }
+      const maxSize = Math.max(1, ...[...buckets.values()].map((arr) => arr.length));
+      const allEqualSize = [...buckets.values()].every((arr) => arr.length === maxSize);
+
+      teamStandings = [...buckets.entries()].map(([tid, members]) => {
+        const def = TEAM_DEFS[tid] || TEAM_DEFS[0];
+        const rawSum = members.reduce((acc, m) => acc + (m.score || 0), 0);
+        // Fairly normalize if teams are uneven (e.g. 2v1), otherwise show exact sum!
+        const score = allEqualSize ? Math.round(rawSum) : Math.round((rawSum / members.length) * maxSize);
+        return {
+          teamId: tid,
+          name: def.name,
+          icon: def.icon,
+          color: def.color,
+          bg: def.bg,
+          score,
+          rawSum: Math.round(rawSum),
+          members: members.map((m) => m.name),
+          memberIds: members.map((m) => m.id),
+          detail: members.map((m) => m.name).join(' + ') + (allEqualSize ? '' : ' (rata-rata disesuaikan)'),
+        };
+      }).sort((a, b) => b.score - a.score);
+
+      teamStandings.forEach((t, idx) => {
+        t.rank = idx + 1;
+        this.teamScores[t.teamId] = (this.teamScores[t.teamId] || 0) + t.score;
+        if (idx === 0) t.memberIds.forEach((id) => winTeamMemberIds.add(id));
+      });
+    }
+
     // Accumulate session scores (also update savedScores if a player temporarily disconnected mid-round!)
     for (const s of standings) {
       const p = this.players.get(s.id);
+      const teamBonus = winTeamMemberIds.has(s.id) ? 40 : 0;
       if (p) {
-        p.sessionScore += s.score;
-        if (s.rank === 1) p.wins += 1;
+        p.sessionScore += s.score + teamBonus;
+        if (s.rank === 1 || winTeamMemberIds.has(s.id)) p.wins += 1;
         if (!p.isBot && p.name) {
-          this.savedScores.set(p.name.toLowerCase(), { sessionScore: p.sessionScore, wins: p.wins, oldId: p.id, leftAt: Date.now() });
+          this.savedScores.set(p.name.toLowerCase(), {
+            sessionScore: p.sessionScore, wins: p.wins, team: p.team ?? 0, oldId: p.id, leftAt: Date.now(),
+          });
         }
       } else if (!s.isBot && s.name) {
         const k = s.name.toLowerCase();
-        const prev = this.savedScores.get(k) || { sessionScore: 0, wins: 0, oldId: s.id };
+        const prev = this.savedScores.get(k) || { sessionScore: 0, wins: 0, team: s.team ?? 0, oldId: s.id };
         this.savedScores.set(k, {
-          sessionScore: prev.sessionScore + s.score,
-          wins: prev.wins + (s.rank === 1 ? 1 : 0),
+          sessionScore: prev.sessionScore + s.score + teamBonus,
+          wins: prev.wins + (s.rank === 1 || winTeamMemberIds.has(s.id) ? 1 : 0),
+          team: prev.team,
           oldId: prev.oldId,
           leftAt: Date.now(),
         });
       }
+    }
+
+    if (this.teamMode) {
+      teamSessionStandings = Array.from({ length: this.teamCount }, (_, tid) => {
+        const def = TEAM_DEFS[tid] || TEAM_DEFS[0];
+        const members = this.playerList.filter((p) => (p.team ?? 0) === tid);
+        return {
+          teamId: tid,
+          name: def.name,
+          icon: def.icon,
+          color: def.color,
+          bg: def.bg,
+          score: this.teamScores[tid] || 0,
+          members: members.map((m) => m.name),
+          detail: members.map((m) => m.name).join(' + ') || 'Kosong',
+        };
+      }).filter((t) => t.members.length > 0 || t.score > 0).sort((a, b) => b.score - a.score);
+      teamSessionStandings.forEach((t, i) => { t.rank = i + 1; });
     }
 
     this.manager.leaderboard.recordGameResult({
@@ -407,13 +601,20 @@ export class Room {
 
     const cupDone = this.partyCup ? this.partyCup.index + 1 >= this.partyCup.total : true;
     const sessionStandings = this.playerList
-      .map((p) => ({ id: p.id, name: p.name, color: p.color, hat: p.hat, isBot: p.isBot, sessionScore: p.sessionScore, wins: p.wins }))
+      .map((p) => ({
+        id: p.id, name: p.name, color: p.color, hat: p.hat, team: p.team ?? 0,
+        isBot: p.isBot, sessionScore: p.sessionScore, wins: p.wins,
+      }))
       .sort((a, b) => b.sessionScore - a.sessionScore);
 
     this.broadcast({
       type: 'game_over',
       gameId,
       meta: GAME_CATALOG.find((g) => g.id === gameId),
+      teamMode: this.teamMode,
+      teamCount: this.teamCount,
+      teamStandings,
+      teamSessionStandings,
       standings,
       sessionStandings,
       partyCup: this._cupSummary(),
@@ -497,12 +698,16 @@ export class Room {
       state: this.state,
       hostId: this.hostId,
       leaderId,
+      teamMode: this.teamMode,
+      teamCount: this.teamCount,
+      teamScores: this.teamScores.slice(0, this.teamCount),
       games: GAME_CATALOG,
       players: this.playerList.map((p) => ({
         id: p.id,
         name: p.name,
         color: p.color,
         hat: p.hat,
+        team: p.team ?? 0,
         isBot: p.isBot,
         sessionScore: p.sessionScore,
         wins: p.wins,
@@ -628,6 +833,14 @@ export class RoomManager {
 
       case 'remove_bot':
         currentRoom?.removeBot(ws.id, msg.botId);
+        break;
+
+      case 'set_team_config':
+        currentRoom?.setTeamConfig(ws.id, msg);
+        break;
+
+      case 'set_player_team':
+        currentRoom?.setPlayerTeam(ws.id, msg.targetId, msg.team);
         break;
 
       case 'start_game':

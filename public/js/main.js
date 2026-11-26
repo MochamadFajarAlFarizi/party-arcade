@@ -610,7 +610,17 @@ const drawView = new DrawView(
 );
 const wordView = new WordView((payload) => sendWS({ type: 'game_action', ...payload }));
 const partyView = new PartyView((payload) => sendWS({ type: 'game_action', ...payload }));
-const PARTY_GAME_IDS = new Set(['trivia-rush', 'reflex-duel', 'math-panic', 'closest-wins']);
+const PARTY_GAME_IDS = new Set([
+  'trivia-rush', 'reflex-duel', 'math-panic', 'closest-wins',
+  'split-or-steal', 'blame-vote', 'greed-heist',
+]);
+
+const TEAM_META = [
+  { id: 0, name: 'Tim Merah', short: 'MERAH', icon: '🔴', color: '#EF4444', bg: '#FEE2E2' },
+  { id: 1, name: 'Tim Biru', short: 'BIRU', icon: '🔵', color: '#3B82F6', bg: '#DBEAFE' },
+  { id: 2, name: 'Tim Hijau', short: 'HIJAU', icon: '🟢', color: '#22C55E', bg: '#DCFCE7' },
+  { id: 3, name: 'Tim Kuning', short: 'KUNING', icon: '🟡', color: '#EAB308', bg: '#FEF9C3' },
+];
 
 // ===== DUAL-MODE TRANSPORT (Local WS or Vercel + Supabase Realtime) =====
 const transport = new GameTransport({
@@ -849,6 +859,9 @@ function renderHomeGameBadges() {
 // ===== LOBBY RENDER =====
 function renderLobby(rs) {
   const isHost = rs.hostId === app.myId;
+  const teamMode = !!rs.teamMode;
+  const teamCount = rs.teamCount || 2;
+
   document.getElementById('lobbyRoomCode').textContent = rs.code;
   document.getElementById('lobbyPlayerCount').textContent = rs.players.length;
   document.getElementById('botControls').classList.toggle('hidden', !isHost);
@@ -856,22 +869,71 @@ function renderLobby(rs) {
   document.getElementById('btnRandomGame').classList.toggle('hidden', !isHost);
   document.getElementById('guestWaitNote').classList.toggle('show', !isHost);
 
+  // Team Mode controls
+  const btnFFA = document.getElementById('btnModeFFA');
+  const btnTeam = document.getElementById('btnModeTeam');
+  const teamRow = document.getElementById('teamConfigRow');
+  const hostTeamCtrl = document.getElementById('teamHostControls');
+  if (btnFFA && btnTeam && teamRow) {
+    btnFFA.classList.toggle('active', !teamMode);
+    btnTeam.classList.toggle('active', teamMode);
+    btnFFA.disabled = !isHost;
+    btnTeam.disabled = !isHost;
+    teamRow.classList.toggle('hidden', !teamMode);
+    if (hostTeamCtrl) {
+      hostTeamCtrl.classList.toggle('hidden', !isHost);
+      hostTeamCtrl.querySelectorAll('[data-team-count]').forEach((b) => {
+        b.classList.toggle('active-mini', Number(b.dataset.teamCount) === teamCount);
+      });
+    }
+    const scoreStrip = document.getElementById('lobbyTeamScores');
+    if (scoreStrip && teamMode) {
+      scoreStrip.innerHTML = '';
+      for (let t = 0; t < teamCount; t++) {
+        const tm = TEAM_META[t];
+        const membersCount = rs.players.filter((p) => (p.team ?? 0) === t).length;
+        const tPts = rs.teamScores?.[t] || 0;
+        const pill = document.createElement('span');
+        pill.className = 'team-score-pill';
+        pill.style.background = tm.bg;
+        pill.style.borderColor = tm.color;
+        pill.textContent = `${tm.icon} ${tm.short} (${membersCount}) • ${tPts} pts`;
+        scoreStrip.appendChild(pill);
+      }
+    }
+  }
+
   const list = document.getElementById('lobbyPlayersList');
   list.innerHTML = '';
   for (const p of rs.players) {
     const row = document.createElement('div');
     row.className = 'player-row';
+    const tm = TEAM_META[p.team ?? 0] || TEAM_META[0];
+    if (teamMode) {
+      row.style.borderLeft = `6px solid ${tm.color}`;
+    }
     const crown = rs.leaderId === p.id ? '👑 ' : '';
     const hostTag = rs.hostId === p.id ? '<span class="tag-badge">HOST</span>' : '';
     const botTag = p.isBot ? '<span class="tag-badge tag-bot">BOT AI</span>' : '';
     const meTag = p.id === app.myId ? '<span class="tag-badge" style="background:#86EFAC">KAMU</span>' : '';
+    const canSwitchTeam = isHost || p.id === app.myId;
+    const teamBtnHtml = teamMode
+      ? `<button type="button" class="team-pill" data-switch-team="${p.id}" style="background:${tm.bg};border-color:${tm.color}" ${canSwitchTeam ? '' : 'disabled'} title="${canSwitchTeam ? 'Klik untuk pindah tim' : tm.name}">${tm.icon} ${tm.short}</button>`
+      : '';
     row.innerHTML = `
       <div class="player-dot" style="background:${p.color}">${hatEmoji(p.hat)}</div>
       <div class="player-info">
         <div class="player-name">${crown}${escapeHtml(p.name)} ${hostTag}${botTag}${meTag}</div>
       </div>
+      ${teamBtnHtml}
       <div class="player-pts">${p.sessionScore} pts</div>
     `;
+    if (teamMode && canSwitchTeam) {
+      row.querySelector('[data-switch-team]')?.addEventListener('click', () => {
+        sfx.play('pop');
+        sendWS({ type: 'set_player_team', targetId: p.id });
+      });
+    }
     list.appendChild(row);
   }
 
@@ -929,6 +991,20 @@ function startGameView(msg) {
   showScreen('game');
   document.getElementById('hudGameName').textContent = `${app.lastGameMeta?.icon || '🎮'} ${app.lastGameMeta?.name || msg.gameId}`;
 
+  const teamBadge = document.getElementById('hudTeamBadge');
+  if (teamBadge) {
+    if (app.roomState?.teamMode) {
+      const me = app.roomState.players?.find((p) => p.id === app.myId);
+      const tm = TEAM_META[me?.team ?? 0] || TEAM_META[0];
+      teamBadge.hidden = false;
+      teamBadge.textContent = `${tm.icon} ${tm.name}`;
+      teamBadge.style.background = tm.bg;
+      teamBadge.style.borderColor = tm.color;
+    } else {
+      teamBadge.hidden = true;
+    }
+  }
+
   const cupBadge = document.getElementById('hudCupBadge');
   if (msg.partyCup) {
     cupBadge.hidden = false;
@@ -976,26 +1052,41 @@ function renderPodium(msg) {
     ? (isCupFinal ? `🏆 JUARA GRAND PARTY CUP (${cup.total} RONDE)!` : `🏆 PARTY CUP RONDE ${cup.round}/${cup.total}`)
     : `${msg.meta?.icon || '🎮'} HASIL ${msg.meta?.name?.toUpperCase() || ''}`;
 
+  const isTeamPodium = !!(msg.teamMode && (msg.teamStandings?.length || msg.teamSessionStandings?.length));
   const displayList = isCupFinal
     ? msg.sessionStandings.map((s, i) => ({ ...s, rank: i + 1, score: s.sessionScore, detail: `${s.wins} kemenangan di Cup` }))
     : msg.standings;
 
-  document.getElementById('podiumTitle').textContent = displayList[0]
-    ? `👑 ${displayList[0].name} MENANG!`
-    : 'PERTANDINGAN SELESAI!';
+  const teamDisplay = isTeamPodium
+    ? (isCupFinal ? (msg.teamSessionStandings || msg.teamStandings) : msg.teamStandings)
+    : null;
+
+  if (teamDisplay && teamDisplay[0]) {
+    document.getElementById('podiumTitle').textContent = `🏆 ${teamDisplay[0].icon} ${teamDisplay[0].name.toUpperCase()} MENANG!`;
+  } else {
+    document.getElementById('podiumTitle').textContent = displayList[0]
+      ? `👑 ${displayList[0].name} MENANG!`
+      : 'PERTANDINGAN SELESAI!';
+  }
 
   const visual = document.getElementById('podiumVisual');
   visual.innerHTML = '';
   const order = [1, 0, 2]; // Silver, Gold, Bronze visual order
   const medals = ['🥇 #1', '🥈 #2', '🥉 #3'];
+  const podiumSource = teamDisplay || displayList;
   for (const idx of order) {
-    const p = displayList[idx];
+    const p = podiumSource[idx];
     if (!p) continue;
     const col = document.createElement('div');
     col.className = `podium-col podium-${idx + 1}`;
+    const bubbleIcon = teamDisplay ? p.icon : hatEmoji(p.hat);
+    const subMembers = teamDisplay && p.members?.length
+      ? `<small style="font-size:11px;color:#475569;font-weight:800;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.members.join(', '))}</small>`
+      : '';
     col.innerHTML = `
-      <div class="podium-avatar-bubble" style="background:${p.color}">${hatEmoji(p.hat)}</div>
+      <div class="podium-avatar-bubble" style="background:${p.color}">${bubbleIcon}</div>
       <strong style="font-size:14px">${escapeHtml(p.name)}</strong>
+      ${subMembers}
       <div class="podium-block">
         <div style="font-size:20px">${medals[idx]}</div>
         <div style="font-size:17px;margin-top:4px">${p.score} pts</div>
@@ -1009,8 +1100,10 @@ function renderPodium(msg) {
   for (const p of displayList) {
     const row = document.createElement('div');
     row.className = 'podium-row';
+    const tm = isTeamPodium ? (TEAM_META[p.team ?? 0] || TEAM_META[0]) : null;
+    const teamTag = tm ? `<span class="team-pill-sm" style="background:${tm.bg};border-color:${tm.color}">${tm.icon} ${tm.short}</span> ` : '';
     row.innerHTML = `
-      <span>#${p.rank} <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${p.color};border:2px solid #1E1B4B;margin:0 6px"></span>${escapeHtml(p.name)} <small style="color:#64748B;margin-left:6px">${escapeHtml(p.detail || '')}</small></span>
+      <span>#${p.rank} ${teamTag}<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${p.color};border:2px solid #1E1B4B;margin:0 6px"></span>${escapeHtml(p.name)} <small style="color:#64748B;margin-left:6px">${escapeHtml(p.detail || '')}</small></span>
       <span style="color:#0284C7">${p.score} pts</span>
     `;
     table.appendChild(row);
@@ -1286,6 +1379,34 @@ function bindEvents() {
   document.getElementById('btnRemoveBot').addEventListener('click', () => {
     sfx.play('pop');
     sendWS({ type: 'remove_bot' });
+  });
+
+  // Team / Co-op Mode Lobby Controls
+  document.getElementById('btnModeFFA')?.addEventListener('click', () => {
+    sfx.play('pop');
+    sendWS({ type: 'set_team_config', enabled: false });
+  });
+  document.getElementById('btnModeTeam')?.addEventListener('click', () => {
+    sfx.play('pop');
+    sendWS({ type: 'set_team_config', enabled: true });
+  });
+  document.getElementById('teamHostControls')?.addEventListener('click', (e) => {
+    const tcBtn = e.target.closest('[data-team-count]');
+    if (tcBtn) {
+      sfx.play('pop');
+      sendWS({ type: 'set_team_config', enabled: true, teamCount: Number(tcBtn.dataset.teamCount), balance: true });
+      return;
+    }
+    const perBtn = e.target.closest('[data-per-team]');
+    if (perBtn) {
+      sfx.play('powerup');
+      sendWS({ type: 'set_team_config', enabled: true, perTeam: Number(perBtn.dataset.perTeam) });
+      return;
+    }
+    if (e.target.closest('#btnShuffleTeams')) {
+      sfx.play('powerup');
+      sendWS({ type: 'set_team_config', enabled: true, shuffle: true });
+    }
   });
 
   document.getElementById('cupControls').addEventListener('click', (e) => {
