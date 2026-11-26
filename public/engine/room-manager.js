@@ -9,18 +9,22 @@ import {
   MeteorShowerGame, SnakePartyGame, GhostFreezeGame, KingHillGame,
 } from './games/arcade-pack.js';
 import { SharkEscapeGame, DodgeballGame, TurboRaceGame } from './games/action-pack2.js';
-import { TriviaRushGame, ReflexDuelGame, MathPanicGame } from './games/party-quiz-pack.js';
+import { TriviaRushGame, ReflexDuelGame, MathPanicGame, ClosestWinsGame } from './games/party-quiz-pack.js';
+import { DashBladeGame, RicochetDuelGame, MemoryRushGame } from './games/competitive-pack.js';
 
 export const GAME_CATALOG = [
+  { id: 'dash-blade', name: 'Dash Blade PvP', icon: '⚔️', desc: 'Duel pedang 3 HP! Dash tebas lawan — bentrok dash jadi CLASH!', color: '#EF4444', tag: 'Action' },
+  { id: 'ricochet-duel', name: 'Ricochet Arena', icon: '🔫', desc: 'Tembak bola energi memantul dari dinding & pilar cover!', color: '#6366F1', tag: 'Action' },
   { id: 'bomb-pass', name: 'Bomb Pass', icon: '💣', desc: 'Oper bom sebelum meledak! Dash & hindari!', color: '#FF5E7E', tag: 'Action' },
   { id: 'sumo-knockout', name: 'Sumo Knockout', icon: '🏝️', desc: 'Dorong lawan jatuh dari pulau yang mengecil!', color: '#FF9F1C', tag: 'Action' },
   { id: 'turf-paint', name: 'Turf Paint', icon: '🎨', desc: 'Cat wilayah terbanyak & stun lawan pakai dash!', color: '#A855F7', tag: 'Action' },
   { id: 'crown-chase', name: 'Crown Chase', icon: '👑', desc: 'Rebut mahkota emas & kabur dari semua pemain!', color: '#FACC15', tag: 'Action' },
   { id: 'coin-rush', name: 'Coin Rush', icon: '💰', desc: 'Rebut koin & berlian! Dash lawan biar koinnya tumpah!', color: '#F59E0B', tag: 'Action' },
   { id: 'king-hill', name: 'King of the Hill', icon: '🎯', desc: 'Rebutan zona emas yang terus berpindah tempat!', color: '#FB7185', tag: 'Action' },
-  { id: 'dodgeball', name: 'Dodgeball Chaos', icon: '🏐', desc: 'Ambil bola lalu tekan Aksi untuk lempar KO lawan!', color: '#EF4444', tag: 'Sport' },
+  { id: 'dodgeball', name: 'Dodgeball Chaos', icon: '🏐', desc: 'Ambil bola lalu tekan Aksi untuk lempar KO lawan!', color: '#E11D48', tag: 'Sport' },
   { id: 'bumper-soccer', name: 'Bumper Soccer', icon: '⚽', desc: 'Sepak bola rusuh 2 tim! Dash tendang ke gawang!', color: '#22C55E', tag: 'Sport' },
   { id: 'turbo-race', name: 'Turbo Dash Race', icon: '🏁', desc: 'Balap 3 lap lewati lumpur, boost & palang putar!', color: '#06B6D4', tag: 'Sport' },
+  { id: 'memory-rush', name: 'Memory Floor', icon: '🧩', desc: 'Hafalkan ubin bintang ⭐ sebelum tertutup & meledak!', color: '#EC4899', tag: 'Survival' },
   { id: 'zombie-tag', name: 'Zombie Tag', icon: '🧟', desc: 'Wabah zombi! Manusia kabur, zombi infeksi semua!', color: '#84CC16', tag: 'Survival' },
   { id: 'ghost-freeze', name: 'Ghost Freeze', icon: '👻', desc: 'Hantu es bekukan pemain; teman bisa cairkan lagi!', color: '#38BDF8', tag: 'Survival' },
   { id: 'meteor-shower', name: 'Meteor Shower', icon: '☄️', desc: 'Hindari hujan meteor & kawah lava yang makin brutal!', color: '#F97316', tag: 'Survival' },
@@ -28,13 +32,18 @@ export const GAME_CATALOG = [
   { id: 'snake-party', name: 'Neon Snake', icon: '🐍', desc: 'Makan buah biar panjang & potong jalur lawan!', color: '#10B981', tag: 'Survival' },
   { id: 'chaos-survival', name: 'Chaos Survival', icon: '⚡', desc: '3 ronde brutal: Lampu Merah, Laser Putar & Lantai Runtuh!', color: '#F43F5E', tag: 'Survival' },
   { id: 'word-bomb', name: 'Sambung Kata Bom', icon: '🔤', desc: 'Sambung suku kata akhir → awal (DA→DALAM→LAM...)!', color: '#22C55E', tag: 'Brain' },
+  { id: 'trivia-rush', name: 'Trivia Kilat', icon: '🧠', desc: '105+ soal kuis seru — adu wawasan, kecepatan & streak!', color: '#8B5CF6', tag: 'Brain' },
+  { id: 'math-panic', name: 'Math Panic', icon: '🧮', desc: '10 ronde hitung cepat (+, -, ×, ÷, kuadrat, persen)!', color: '#14B8A6', tag: 'Brain' },
+  { id: 'closest-wins', name: 'Tebak Angka', icon: '🎲', desc: 'Tebak angka fakta unik terdekat — tepat sasaran JACKPOT!', color: '#F97316', tag: 'Brain' },
   { id: 'quick-draw', name: 'Tebak Gambar', icon: '✏️', desc: 'Gambar cepat & tebak kata bareng teman di chat!', color: '#38BDF8', tag: 'Social' },
-  { id: 'trivia-rush', name: 'Trivia Kilat', icon: '🧠', desc: 'Kuis seru 7 soal cepat — adu wawasan & kecepatan!', color: '#8B5CF6', tag: 'Brain' },
   { id: 'reflex-duel', name: 'Reflex Duel', icon: '⚡', desc: 'Adu refleks milidetik! Awas kena jebakan warna palsu!', color: '#EC4899', tag: 'Social' },
-  { id: 'math-panic', name: 'Math Panic', icon: '🧮', desc: 'Hitung cepat di bawah tekanan! Siapa kalkulator jalan?', color: '#14B8A6', tag: 'Brain' },
 ];
 
 const GAME_CONSTRUCTORS = {
+  'dash-blade': DashBladeGame,
+  'ricochet-duel': RicochetDuelGame,
+  'memory-rush': MemoryRushGame,
+  'closest-wins': ClosestWinsGame,
   'bomb-pass': BombPassGame,
   'sumo-knockout': SumoKnockoutGame,
   'turf-paint': TurfPaintGame,
@@ -80,6 +89,7 @@ export class Room {
     this.partyCup = null; // { queue: string[], index: number, total: number }
     this.lastStandings = [];
     this.botCounter = 0;
+    this.savedScores = new Map(); // nameLower -> { sessionScore, wins, oldId } — preserves scores on disconnect/rejoin!
   }
 
   get playerList() {
@@ -90,32 +100,106 @@ export class Room {
     return this.playerList.filter((p) => !p.isBot).length;
   }
 
+  _rebindActiveGamePlayer(oldId, newId, nameLower) {
+    const g = this.currentGame;
+    if (!g) return false;
+    let rebound = false;
+    const match = (e) => e && !e.isBot && (e.id === oldId || (e.name && e.name.toLowerCase() === nameLower));
+    if (Array.isArray(g.entities)) {
+      for (const e of g.entities) {
+        if (match(e)) {
+          const prevId = e.id;
+          e.id = newId;
+          rebound = true;
+          if (Array.isArray(g.bombs)) g.bombs.forEach((b) => { if (b.holderId === prevId) b.holderId = newId; });
+          if (g.crown && g.crown.holderId === prevId) g.crown.holderId = newId;
+          if (Array.isArray(g.balls)) g.balls.forEach((b) => { if (b.ownerId === prevId) b.ownerId = newId; if (b.thrownBy === prevId) b.thrownBy = newId; });
+          if (Array.isArray(g.bullets)) g.bullets.forEach((b) => { if (b.ownerId === prevId) b.ownerId = newId; });
+        }
+      }
+    }
+    if (Array.isArray(g.players)) {
+      for (const e of g.players) {
+        if (match(e)) {
+          e.id = newId;
+          rebound = true;
+        }
+      }
+    }
+    return rebound;
+  }
+
   addHuman(ws, profile = {}) {
+    // If same ws.id is already in room (e.g. reconnected within grace window), refresh cleanly
+    const existingSameId = this.players.get(ws.id);
+    if (existingSameId) {
+      existingSameId.ws = ws;
+      if (profile.name) existingSameId.name = sanitizeName(profile.name);
+      if (COLORS.includes(profile.color)) existingSameId.color = profile.color;
+      if (HATS.includes(profile.hat)) existingSameId.hat = profile.hat;
+      this.broadcastLobby();
+      if (this.state === 'playing' && this.currentGame) {
+        const activeInGame = this._rebindActiveGamePlayer(existingSameId.id, existingSameId.id, existingSameId.name.toLowerCase());
+        ws.sendJSON({
+          type: 'game_start',
+          gameId: this.currentGame.gameId,
+          spectating: !activeInGame,
+          partyCup: this._cupSummary(),
+          meta: GAME_CATALOG.find((g) => g.id === this.currentGame.gameId),
+        });
+        if (this.currentGame.gameId === 'quick-draw') {
+          ws.sendJSON({ type: 'draw_sync', strokes: this.currentGame.strokes });
+        }
+      }
+      return { player: existingSameId };
+    }
     if (this.players.size >= MAX_PLAYERS) {
       return { error: 'Room sudah penuh (maks 12 pemain)!' };
     }
+    const cleanName = sanitizeName(profile.name);
+    const nameKey = cleanName.toLowerCase();
+    const saved = this.savedScores.get(nameKey);
+
     const usedColors = new Set(this.playerList.map((p) => p.color));
     const color = COLORS.includes(profile.color) ? profile.color : (COLORS.find((c) => !usedColors.has(c)) || COLORS[0]);
     const hat = HATS.includes(profile.hat) ? profile.hat : 'headset';
     const player = {
       id: ws.id,
       ws,
-      name: sanitizeName(profile.name),
+      name: cleanName,
       color,
       hat,
       isBot: false,
-      sessionScore: 0,
-      wins: 0,
+      sessionScore: saved ? saved.sessionScore : 0,
+      wins: saved ? saved.wins : 0,
     };
     this.players.set(player.id, player);
     if (!this.hostId) this.hostId = player.id;
 
-    this.broadcastLobby();
-    this.broadcast({ type: 'chat', system: true, tone: 'info', text: `👋 ${player.name} bergabung ke room!` });
-
-    // If game is already running, let them spectate live
+    let reboundInGame = false;
     if (this.state === 'playing' && this.currentGame) {
-      ws.sendJSON({ type: 'game_start', gameId: this.currentGame.gameId, spectating: true, partyCup: this._cupSummary() });
+      reboundInGame = this._rebindActiveGamePlayer(saved?.oldId, player.id, nameKey);
+    }
+
+    this.broadcastLobby();
+    if (saved && (saved.sessionScore > 0 || saved.wins > 0)) {
+      this.broadcast({
+        type: 'chat', system: true, tone: 'success',
+        text: `🔄 ${player.name} kembali masuk! Skor (${player.sessionScore} pts) dipulihkan!`,
+      });
+    } else {
+      this.broadcast({ type: 'chat', system: true, tone: 'info', text: `👋 ${player.name} bergabung ke room!` });
+    }
+
+    // If game is already running, let them resume their character or spectate live
+    if (this.state === 'playing' && this.currentGame) {
+      ws.sendJSON({
+        type: 'game_start',
+        gameId: this.currentGame.gameId,
+        spectating: !reboundInGame,
+        partyCup: this._cupSummary(),
+        meta: GAME_CATALOG.find((g) => g.id === this.currentGame.gameId),
+      });
       if (this.currentGame.gameId === 'quick-draw') {
         ws.sendJSON({ type: 'draw_sync', strokes: this.currentGame.strokes });
       }
@@ -126,6 +210,17 @@ export class Room {
   removePlayer(playerId) {
     const p = this.players.get(playerId);
     if (!p) return;
+
+    // Persist human player's session score so if they disconnect & rejoin, points are NOT reset!
+    if (!p.isBot && p.name) {
+      this.savedScores.set(p.name.toLowerCase(), {
+        sessionScore: p.sessionScore,
+        wins: p.wins,
+        oldId: p.id,
+        leftAt: Date.now(),
+      });
+    }
+
     this.players.delete(playerId);
 
     if (this.hostId === playerId) {
@@ -139,7 +234,7 @@ export class Room {
       return;
     }
 
-    this.broadcast({ type: 'chat', system: true, tone: 'info', text: `🚪 ${p.name} keluar dari room.` });
+    this.broadcast({ type: 'chat', system: true, tone: 'info', text: `🚪 ${p.name} terputus (skor ${p.sessionScore} pts disimpan jika gabung lagi).` });
     this.broadcastLobby();
   }
 
@@ -199,6 +294,7 @@ export class Room {
     const count = Math.max(2, Math.min(GAME_CATALOG.length, Number(rounds) || 3));
     const shuffled = [...GAME_CATALOG.map((g) => g.id)].sort(() => Math.random() - 0.5);
     this.partyCup = { queue: shuffled.slice(0, count), index: 0, total: count };
+    this.savedScores.clear();
     for (const p of this.players.values()) p.sessionScore = 0;
     this._launchGame(this.partyCup.queue[0]);
   }
@@ -241,7 +337,7 @@ export class Room {
     });
 
     this.lastTickAt = Date.now();
-    const turnBased = ['quick-draw', 'word-bomb', 'trivia-rush', 'math-panic'].includes(gameId);
+    const turnBased = ['quick-draw', 'word-bomb', 'trivia-rush', 'math-panic', 'closest-wins'].includes(gameId);
     const defaultTick = this.manager.tickMs || 33;
     const intervalMs = turnBased ? Math.max(defaultTick, 120) : defaultTick;
     this.tickHandle = setInterval(() => this._tick(), intervalMs);
@@ -282,12 +378,24 @@ export class Room {
     this.state = 'podium';
     this.lastStandings = standings;
 
-    // Accumulate session scores
+    // Accumulate session scores (also update savedScores if a player temporarily disconnected mid-round!)
     for (const s of standings) {
       const p = this.players.get(s.id);
       if (p) {
         p.sessionScore += s.score;
         if (s.rank === 1) p.wins += 1;
+        if (!p.isBot && p.name) {
+          this.savedScores.set(p.name.toLowerCase(), { sessionScore: p.sessionScore, wins: p.wins, oldId: p.id, leftAt: Date.now() });
+        }
+      } else if (!s.isBot && s.name) {
+        const k = s.name.toLowerCase();
+        const prev = this.savedScores.get(k) || { sessionScore: 0, wins: 0, oldId: s.id };
+        this.savedScores.set(k, {
+          sessionScore: prev.sessionScore + s.score,
+          wins: prev.wins + (s.rank === 1 ? 1 : 0),
+          oldId: prev.oldId,
+          leftAt: Date.now(),
+        });
       }
     }
 
@@ -494,14 +602,15 @@ export class RoomManager {
           ws.sendJSON({ type: 'error', message: `Room "${code}" tidak ditemukan! Cek kode dari temanmu.` });
           return;
         }
-        if (currentRoom) this.leaveRoom(ws);
-        const res = room.addHuman(ws, msg.profile || {});
-        if (res.error) {
-          ws.sendJSON({ type: 'error', message: res.error });
+        if (!room.players.has(ws.id) && room.players.size >= MAX_PLAYERS) {
+          ws.sendJSON({ type: 'error', message: 'Room sudah penuh (maks 12 pemain)!' });
           return;
         }
+        if (currentRoom && currentRoom !== room) this.leaveRoom(ws);
         this.clientRoom.set(ws.id, room);
+        // Send welcome BEFORE addHuman so client switches to lobby first, then mid-game game_start switches cleanly to game!
         ws.sendJSON({ type: 'welcome', playerId: ws.id, roomCode: code });
+        room.addHuman(ws, msg.profile || {});
         break;
       }
 

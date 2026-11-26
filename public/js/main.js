@@ -610,7 +610,7 @@ const drawView = new DrawView(
 );
 const wordView = new WordView((payload) => sendWS({ type: 'game_action', ...payload }));
 const partyView = new PartyView((payload) => sendWS({ type: 'game_action', ...payload }));
-const PARTY_GAME_IDS = new Set(['trivia-rush', 'reflex-duel', 'math-panic']);
+const PARTY_GAME_IDS = new Set(['trivia-rush', 'reflex-duel', 'math-panic', 'closest-wins']);
 
 // ===== DUAL-MODE TRANSPORT (Local WS or Vercel + Supabase Realtime) =====
 const transport = new GameTransport({

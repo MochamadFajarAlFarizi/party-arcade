@@ -7,6 +7,7 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const FILE_PATH = path.join(DATA_DIR, 'leaderboard.json');
 
 const GAME_IDS = [
+  'dash-blade', 'ricochet-duel', 'memory-rush', 'closest-wins',
   'bomb-pass', 'sumo-knockout', 'turf-paint', 'quick-draw', 'word-bomb', 'chaos-survival',
   'crown-chase', 'coin-rush', 'zombie-tag', 'bumper-soccer', 'meteor-shower', 'snake-party',
   'ghost-freeze', 'king-hill', 'shark-escape', 'dodgeball', 'turbo-race',

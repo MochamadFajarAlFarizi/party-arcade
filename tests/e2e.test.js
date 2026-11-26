@@ -63,7 +63,7 @@ async function run() {
     const healthRes = await fetch(`http://127.0.0.1:${port}/api/health`);
     const health = await healthRes.json();
     assert.equal(health.ok, true);
-    assert.equal(health.games, 20);
+    assert.equal(health.games, 24);
 
     const htmlRes = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(htmlRes.status, 200);
@@ -109,8 +109,9 @@ async function run() {
     assert.equal(customReact.name, 'Siti');
     assert.equal(customReact.label, 'NGAKAK');
 
-    // 4. Verify ALL 20 mini-games boot, accept input/actions, and produce valid state
+    // 4. Verify ALL 24 mini-games boot, accept input/actions, and produce valid state
     const gameIds = [
+      'dash-blade', 'ricochet-duel', 'memory-rush', 'closest-wins',
       'bomb-pass', 'sumo-knockout', 'turf-paint', 'quick-draw', 'word-bomb', 'chaos-survival',
       'crown-chase', 'coin-rush', 'zombie-tag', 'bumper-soccer', 'meteor-shower', 'snake-party',
       'ghost-freeze', 'king-hill', 'shark-escape', 'dodgeball', 'turbo-race',
@@ -124,6 +125,14 @@ async function run() {
       // Receive live tick state
       const tickState = await p2.waitFor((m) => m.type === 'game_state' && m.state.gameId === gid);
       assert.equal(tickState.state.players.length, 4);
+
+      if (gid === 'closest-wins') {
+        const room = rooms.rooms.get(code);
+        room.currentGame.countdown = 0;
+        room.currentGame.step(0.05);
+        room.currentGame.handleAction(w1.playerId, { action: 'estimate', value: 100 });
+        assert.equal(room.currentGame.players.find((p) => p.id === w1.playerId).guess, 100);
+      }
 
       if (gid === 'quick-draw') {
         const room = rooms.rooms.get(code);
@@ -184,14 +193,48 @@ async function run() {
     const cupStart = await p1.waitFor((m) => m.type === 'game_start' && m.partyCup?.total === 3);
     assert.equal(cupStart.partyCup.round, 1);
 
-    // Simulate match completion to test leaderboard recording
+    // Simulate match completion to test leaderboard recording & disconnect/rejoin score preservation!
     const room = rooms.rooms.get(code);
+    const p2Player = [...room.players.values()].find((p) => p.name === 'Budi');
     room.currentGame.finishGame([
       { id: w1.playerId, name: 'Raka', color: '#FF5E7E', hat: 'headset', isBot: false, score: 320, detail: 'Juara!' },
+      { id: p2Player.id, name: 'Budi', color: '#38BDF8', hat: 'cat', isBot: false, score: 245, detail: 'Runner-up!' },
       { id: 'bot_x', name: 'BotBoba', color: '#22C55E', hat: 'cat', isBot: true, score: 150, detail: 'Bot' },
     ]);
     const gameOver = await p1.waitFor((m) => m.type === 'game_over');
     assert.equal(gameOver.standings[0].name, 'Raka');
+
+    // Disconnect Budi and rejoin with a fresh socket -> sessionScore MUST stay 245 (NOT 0!)
+    p1.send({ type: 'back_to_lobby' });
+    await p1.waitFor((m) => m.type === 'room_state' && m.state === 'lobby');
+    p2.close();
+    await p1.waitFor((m) => m.type === 'room_state' && m.players.length === 3);
+    assert.equal(room.savedScores.get('budi')?.sessionScore, 245);
+
+    const p2Rejoin = await connectClient(port);
+    await p2Rejoin.waitFor((m) => m.type === 'hello');
+    p2Rejoin.send({ type: 'join_room', code, profile: { name: 'Budi', color: '#38BDF8', hat: 'cat' } });
+    await p2Rejoin.waitFor((m) => m.type === 'welcome');
+    const rsRestored = await p2Rejoin.waitFor((m) => m.type === 'room_state' && m.players.length === 4);
+    const budiAfter = rsRestored.players.find((p) => p.name === 'Budi');
+    assert.equal(budiAfter.sessionScore, 245);
+
+    // Also test mid-game disconnect & rejoin: welcome arrives BEFORE game_start and player stays active!
+    p1.send({ type: 'start_game', gameId: 'dash-blade' });
+    await p2Rejoin.waitFor((m) => m.type === 'game_start' && m.gameId === 'dash-blade');
+    p2Rejoin.close();
+    await p1.waitFor((m) => m.type === 'room_state' && m.players.length === 3);
+
+    const p2Mid = await connectClient(port);
+    await p2Mid.waitFor((m) => m.type === 'hello');
+    p2Mid.send({ type: 'join_room', code, profile: { name: 'Budi', color: '#38BDF8', hat: 'cat' } });
+    const midWelcome = await p2Mid.waitFor((m) => m.type === 'welcome');
+    const midStart = await p2Mid.waitFor((m) => m.type === 'game_start' && m.gameId === 'dash-blade');
+    assert.equal(midStart.spectating, false);
+    assert.equal(room.players.get(midWelcome.playerId).sessionScore, 245);
+    p2Mid.close();
+    p1.send({ type: 'back_to_lobby' });
+    await p1.waitFor((m) => m.type === 'room_state' && m.state === 'lobby');
 
     leaderboard.flush();
     const lbRes = await fetch(`http://127.0.0.1:${port}/api/leaderboard`);

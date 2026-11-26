@@ -1,5 +1,18 @@
 import { RoomManager, GAME_CATALOG } from '../engine/room-manager.js';
 
+function loadStableClientId() {
+  try {
+    let id = sessionStorage.getItem('party_pop_client_id');
+    if (!id) {
+      id = `p_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem('party_pop_client_id', id);
+    }
+    return id;
+  } catch {
+    return `p_${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
 /**
  * Dual-Mode Multiplayer Transport:
  * - Local Mode (Node server): connects to native WebSocket (/ws)
@@ -15,13 +28,14 @@ export class GameTransport {
 
     // Supabase Realtime state
     this.supabase = null;
-    this.myId = `p_${Math.random().toString(36).slice(2, 10)}`;
+    this.myId = loadStableClientId();
     this.channel = null;
     this.isHost = false;
     this.roomCode = null;
     this.hostManager = null;
     this.hostWs = null;
     this.remoteAdapters = new Map();
+    this.leaveTimers = new Map(); // Grace period timers so mobile Wi-Fi blips don't kick players!
     this.joinTimer = null;
     this.cachedLeaderboard = { updatedAt: new Date().toISOString(), global: [], perGame: {}, recentMatches: [] };
   }
@@ -105,6 +119,8 @@ export class GameTransport {
   async _cleanupChannel() {
     clearTimeout(this.joinTimer);
     this.joinTimer = null;
+    for (const t of this.leaveTimers.values()) clearTimeout(t);
+    this.leaveTimers.clear();
     if (this.hostManager && this.hostWs) {
       this.hostManager.leaveRoom(this.hostWs);
     }
@@ -215,17 +231,35 @@ export class GameTransport {
 
     ch.on('broadcast', { event: 'c2s' }, ({ payload }) => {
       if (!this.hostManager || !payload || !payload.from || !payload.msg) return;
+      // Cancel pending disconnect timer if player sends any message!
+      if (this.leaveTimers.has(payload.from)) {
+        clearTimeout(this.leaveTimers.get(payload.from));
+        this.leaveTimers.delete(payload.from);
+      }
       const remoteWs = this._getRemoteAdapter(payload.from);
       this.hostManager.handleMessage(remoteWs, JSON.stringify(payload.msg));
     });
 
+    ch.on('presence', { event: 'join' }, ({ key }) => {
+      if (key && this.leaveTimers.has(key)) {
+        clearTimeout(this.leaveTimers.get(key));
+        this.leaveTimers.delete(key);
+      }
+    });
+
     ch.on('presence', { event: 'leave' }, ({ key }) => {
       if (!key || key === this.myId) return;
-      const adapter = this.remoteAdapters.get(key);
-      if (adapter && this.hostManager) {
-        this.hostManager.leaveRoom(adapter);
-        this.remoteAdapters.delete(key);
-      }
+      // 7-second grace period for mobile app-switching / Wi-Fi hiccups!
+      if (this.leaveTimers.has(key)) clearTimeout(this.leaveTimers.get(key));
+      const timer = setTimeout(() => {
+        this.leaveTimers.delete(key);
+        const adapter = this.remoteAdapters.get(key);
+        if (adapter && this.hostManager) {
+          this.hostManager.leaveRoom(adapter);
+          this.remoteAdapters.delete(key);
+        }
+      }, 7000);
+      this.leaveTimers.set(key, timer);
     });
 
     ch.subscribe((status) => {
@@ -248,10 +282,19 @@ export class GameTransport {
     });
     this.channel = ch;
 
+    let hostLeftTimer = null;
+    const cancelHostLeft = () => {
+      if (hostLeftTimer) {
+        clearTimeout(hostLeftTimer);
+        hostLeftTimer = null;
+      }
+    };
+
     ch.on('broadcast', { event: 's2c' }, ({ payload }) => {
       if (!payload || !payload.msg) return;
       if (payload.to !== null && payload.to !== undefined && payload.to !== this.myId) return;
       if (payload.excludeId && payload.excludeId === this.myId) return;
+      cancelHostLeft();
       if (payload.msg.type === 'welcome') {
         welcomed = true;
         clearTimeout(this.joinTimer);
@@ -259,13 +302,21 @@ export class GameTransport {
       this.onMessage(payload.msg);
     });
 
+    ch.on('presence', { event: 'join' }, ({ newPresences }) => {
+      if ((newPresences || []).some((p) => p.role === 'host')) cancelHostLeft();
+    });
+
     ch.on('presence', { event: 'leave' }, ({ leftPresences }) => {
       if (!welcomed) return;
       const hostLeft = (leftPresences || []).some((p) => p.role === 'host');
-      if (hostLeft) {
-        this.onMessage({ type: 'error', message: 'Host keluar — room ditutup.' });
-        this._cleanupChannel();
-        this.onMessage({ type: 'host_left' });
+      if (hostLeft && !hostLeftTimer) {
+        hostLeftTimer = setTimeout(() => {
+          hostLeftTimer = null;
+          if (this.channel !== ch) return;
+          this.onMessage({ type: 'error', message: 'Host keluar — room ditutup.' });
+          this._cleanupChannel();
+          this.onMessage({ type: 'host_left' });
+        }, 4500);
       }
     });
 

@@ -131,6 +131,15 @@ export class ArenaView {
     } else if (s.gameId === 'dodgeball') {
       const alive = s.players.filter((p) => p.alive).length;
       this.hudCenterEl.textContent = `🏐 Sisa ${alive} • Ambil bola + DASH untuk lempar!`;
+    } else if (s.gameId === 'dash-blade') {
+      const alive = s.players.filter((p) => p.alive).length;
+      this.hudCenterEl.textContent = `⚔️ Sisa ${alive} • Tekan DASH untuk Tebas Lawan! • ⏱ ${s.timeLeft}s`;
+    } else if (s.gameId === 'ricochet-duel') {
+      const alive = s.players.filter((p) => p.alive).length;
+      this.hudCenterEl.textContent = `🔫 Sisa ${alive} • Tekan DASH untuk Tembak Pantul! • ⏱ ${s.timeLeft}s`;
+    } else if (s.gameId === 'memory-rush') {
+      const label = s.subPhase === 'preview' ? '👀 HAFALKAN ⭐' : s.subPhase === 'hide' ? '❓ LARI KE ⭐!' : '💥 MELEDAK!';
+      this.hudCenterEl.textContent = `🧩 Ronde ${s.wave}/${s.maxWaves} • ${label} (${s.subTimer}s)`;
     } else if (s.gameId === 'turbo-race') {
       const me = s.players.find((p) => p.id === this.myId);
       this.hudCenterEl.textContent = `🏁 Lap ${me?.lap || 1}/3 • ⏱ ${s.timeLeft}s`;
@@ -276,6 +285,9 @@ export class ArenaView {
     else if (s.gameId === 'shark-escape') this._drawSharkEscape(ctx, s, players, time);
     else if (s.gameId === 'dodgeball') this._drawDodgeball(ctx, s, players, time);
     else if (s.gameId === 'turbo-race') this._drawTurboRace(ctx, s, players, time);
+    else if (s.gameId === 'dash-blade') this._drawDashBlade(ctx, s, players, time);
+    else if (s.gameId === 'ricochet-duel') this._drawRicochet(ctx, s, players, time);
+    else if (s.gameId === 'memory-rush') this._drawMemoryRush(ctx, s, players, time);
 
     this._drawPlayerEmotes(ctx, players);
     this.vfx.draw(ctx);
@@ -969,6 +981,127 @@ export class ArenaView {
         x: p.rx, y: p.ry, r: 21, color: p.color, hat: p.hat,
         facing: p.facing, speed: Math.hypot(p.vx, p.vy), time,
         name: `${p.name} (L${p.lap})`, isMe: p.id === this.myId, turbo: p.boost,
+      });
+    }
+  }
+
+  _drawDashBlade(ctx, s, players, time) {
+    this._drawPlaygroundFloor(ctx, '#FEF2F2', '#FEE2E2');
+    // Orbs
+    for (const o of s.orbs || []) {
+      const bob = Math.sin(time * 6 + o.x) * 4;
+      ctx.fillStyle = o.type === 'heal' ? '#86EFAC' : '#FACC15';
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.arc(o.x, o.y + bob, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(o.type === 'heal' ? '❤️' : '⚔️', o.x, o.y + bob + 1);
+    }
+
+    for (const p of players) {
+      if (!p.alive) continue;
+      // Glowing energy slash arc when dashing!
+      ctx.save();
+      ctx.translate(p.rx, p.ry);
+      ctx.rotate(p.facing);
+      if (p.slashing) {
+        ctx.strokeStyle = p.fury ? '#FACC15' : '#FF5E7E';
+        ctx.lineWidth = 10; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(8, 0, 38, -0.85, 0.85); ctx.stroke();
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(8, 0, 38, -0.7, 0.7); ctx.stroke();
+      } else {
+        // Cartoon sword held at side
+        ctx.fillStyle = p.fury ? '#FACC15' : '#E2E8F0';
+        ctx.strokeStyle = INK; ctx.lineWidth = 2.8;
+        roundRectPath(ctx, 16, -4, 24, 8, 4); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      if (p.invuln && Math.sin(time * 35) > 0) ctx.globalAlpha = 0.5;
+      drawCartoonBean(ctx, {
+        x: p.rx, y: p.ry, r: 22, color: p.color, hat: p.hat,
+        facing: p.facing, speed: Math.hypot(p.vx, p.vy), time,
+        name: p.name, isMe: p.id === this.myId, turbo: p.fury,
+      });
+      ctx.restore();
+      ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, 3 - p.hp)), p.rx, p.ry - 34);
+    }
+  }
+
+  _drawRicochet(ctx, s, players, time) {
+    this._drawPlaygroundFloor(ctx, '#EEF2FF', '#E0E7FF');
+    // Cover pillars
+    for (const box of s.pillars || []) {
+      ctx.fillStyle = 'rgba(30,27,75,0.18)';
+      roundRectPath(ctx, box.x, box.y + 8, box.w, box.h, 14); ctx.fill();
+      ctx.fillStyle = '#6366F1'; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+      roundRectPath(ctx, box.x, box.y, box.w, box.h, 14); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      roundRectPath(ctx, box.x + 8, box.y + 7, box.w - 16, 12, 6); ctx.fill();
+    }
+    // Bouncy energy shots
+    for (const b of s.bullets || []) {
+      ctx.fillStyle = b.color || '#EF4444'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath(); ctx.arc(b.x - 3, b.y - 3, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const p of players) {
+      if (!p.alive) continue;
+      // Aim directional indicator
+      ctx.save();
+      ctx.translate(p.rx, p.ry);
+      ctx.rotate(p.facing);
+      ctx.fillStyle = '#FACC15'; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(36, 0); ctx.lineTo(25, -7); ctx.lineTo(25, 7); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+
+      drawCartoonBean(ctx, {
+        x: p.rx, y: p.ry, r: 22, color: p.color, hat: p.hat,
+        facing: p.facing, speed: Math.hypot(p.vx, p.vy), time, name: p.name, isMe: p.id === this.myId,
+      });
+      ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, 3 - p.hp)), p.rx, p.ry - 34);
+    }
+  }
+
+  _drawMemoryRush(ctx, s, players, time) {
+    const padX = 110; const padY = 82;
+    const cols = s.cols || 5; const rows = s.rows || 3;
+    const cw = (W - padX * 2) / cols;
+    const ch = (H - padY * 2) / rows;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        const isSafe = s.safeSet ? !!s.safeSet[idx] : false;
+        if (s.subPhase === 'boom' && !isSafe) continue;
+        const x = padX + c * cw; const y = padY + r * ch;
+        let fill = '#A855F7';
+        let icon = '❓';
+        if (s.subPhase === 'preview') {
+          fill = isSafe ? '#FDE047' : '#CBD5E1';
+          icon = isSafe ? '⭐' : '💣';
+        } else if (s.subPhase === 'boom') {
+          fill = '#4ADE80';
+          icon = '⭐';
+        }
+        ctx.fillStyle = fill; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+        roundRectPath(ctx, x + 6, y + 6, cw - 12, ch - 12, 16);
+        ctx.fill(); ctx.stroke();
+        ctx.font = '38px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(icon, x + cw / 2, y + ch / 2 + 2);
+      }
+    }
+
+    for (const p of players) {
+      if (!p.alive) continue;
+      drawCartoonBean(ctx, {
+        x: p.rx, y: p.ry, r: 21, color: p.color, hat: p.hat,
+        facing: p.facing, speed: Math.hypot(p.vx, p.vy), time, name: p.name, isMe: p.id === this.myId,
       });
     }
   }
